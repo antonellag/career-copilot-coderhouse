@@ -100,18 +100,23 @@ export function Hero() {
         </motion.p>
 
         <motion.div variants={fadeUp} transition={{ duration: 0.6, ease: "easeOut" }} className="relative">
-          {/* Moving glow ring: a rotating conic gradient peeking out ~1.5px around the
-              pill, behind the button's own translucent fill. */}
-          <motion.div
-            aria-hidden="true"
-            className="pointer-events-none absolute -inset-[1.5px] rounded-pill"
-            style={{
-              background:
-                "conic-gradient(from 0deg, transparent 0%, #ff5c2d 18%, transparent 36%)",
-            }}
-            animate={{ rotate: 360 }}
-            transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-          />
+          {/* Moving glow ring: a wide-pill box, not a square, so a rotating conic
+              gradient can't just sit *in* it — rotating the box itself swept its
+              corners past the rounded edge and read as a spinning rectangle. Fix:
+              clip a much bigger rotating gradient to the pill shape (overflow-hidden
+              here), so only a thin ring of moving light shows around the button's
+              1.5px edge instead of the whole shape spinning. */}
+          <div aria-hidden="true" className="pointer-events-none absolute -inset-[1.5px] overflow-hidden rounded-pill">
+            <motion.div
+              className="absolute inset-[-60%]"
+              style={{
+                background:
+                  "conic-gradient(from 0deg, transparent 0%, #ff5c2d 12%, transparent 28%)",
+              }}
+              animate={{ rotate: 360 }}
+              transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+            />
+          </div>
           <Link
             to="/limbo"
             className="group relative inline-flex items-center gap-2.5 rounded-pill border border-white/40 bg-white/20 px-8 py-4 font-['Plus_Jakarta_Sans:Medium',sans-serif] text-sm text-brand-hover backdrop-blur-md transition-transform hover:scale-[1.03] hover:bg-white/30"
