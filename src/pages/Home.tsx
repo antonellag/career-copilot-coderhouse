@@ -6,10 +6,10 @@ import { Hero } from "@/components/Hero";
 /**
  * Each breakpoint import below used to render its own hero + sticky navbar at
  * the top (see src/imports, folder per breakpoint, function "EndOfBodyStart").
- * Those were removed from the three files in this session — this page renders
- * ONE shared <Hero /> (with its own <PillNavbar />) instead, then the legacy
- * per-breakpoint sections (Format Finder, Categories, Features, ...) right
- * below it.
+ * Those were removed from the three files in this session — <Navbar /> (from
+ * MarketingLayout, above this page) + <Hero /> replace them, then the legacy
+ * per-breakpoint sections (Format Finder, Categories, Features, ...) render
+ * right below.
  *
  * The legacy sections are still absolutely positioned assuming the old hero's
  * height (a Figma Make export quirk — see the removal comment inside each

@@ -1,12 +1,16 @@
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
-import { PillNavbar } from "./PillNavbar";
 
 /**
  * Home hero — illustrated "island in the clouds" scene, per this session's
  * brief (landing-arquitectura-ia.md: introspection-with-company mood, not the
  * old stock video).
+ *
+ * The header (promo banner + sticky menu bar) is NOT part of this component —
+ * it's <Navbar /> from MarketingLayout, rendered once above every marketing
+ * page. This used to be a floating pill nav rendered here; that was wrong
+ * (see Navbar.tsx for why) and was replaced site-wide.
  *
  * Assets are two constants below — swap them for final art without touching
  * the component. Both live in /public/hero so they're served as plain static
@@ -34,8 +38,6 @@ const fadeUp = {
 export function Hero() {
   return (
     <section className="relative h-[92vh] min-h-[640px] w-full overflow-hidden bg-ink">
-      <PillNavbar />
-
       {/* Background layer: clouds sky, slow "breathing" pan+zoom (not a scroll loop —
           it's a single photo, not a tileable texture, so a loop would show a seam). */}
       <motion.img
