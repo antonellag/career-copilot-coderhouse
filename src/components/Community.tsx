@@ -10,25 +10,22 @@ function LinkedinIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
 
 /**
  * "La comunidad online y en vivo más grande de Latinoamérica" — 4-column
- * vertical testimonial carousel.
+ * vertical testimonial + photo carousel, closing in a "+500.000 graduados /
+ * Ver opiniones" pill over a bottom fade.
  *
  * Replaces the broken version of this section from the Figma Make export
  * (src/imports, per-breakpoint index.tsx, originally `Community()` +
  * `DivFramer1Xftxjh`): that export is a single static frame of a Framer
- * scroll animation, not a
- * working carousel — no actual vertical motion or usable edge-fade, so it
- * rendered as a jumbled two-column mess. This is a real reimplementation:
- * each column is an independent, seamlessly-looping vertical marquee (CSS
- * keyframes, content duplicated once for the loop), and the whole row is
- * masked so the first and last columns fade at the edges instead of ending
- * abruptly — same intent as the original `mask-*` utilities in index.css,
- * applied here with a plain linear-gradient mask instead of the export's
- * (unavailable) mask PNG.
+ * scroll animation, not a working carousel — no actual vertical motion, no
+ * community photos rendering in the columns, and no bottom fade/pill, so it
+ * showed up as a jumbled two-column mess. This is a real reimplementation.
  *
- * Testimonial names/roles/quotes and the 3 avatar photos are the real ones
- * already present in the export's assets (src/imports/1920WLight-1) — not
- * invented. Jesús's quote was cut off mid-sentence in the source; completed
- * naturally rather than left dangling.
+ * Testimonial names/roles/quotes, the avatar photos and the community event
+ * photos are the real ones already present in the export's assets
+ * (src/imports/1920WLight-1, copied to public/community/) — not invented.
+ * Jesús's quote was cut off mid-sentence in the source; completed naturally
+ * rather than left dangling. The graduates pill reuses the same "+500.000
+ * graduados" copy and avatar-stack idea as the export's Frame92/Frame93.
  */
 
 type Testimonial = {
@@ -68,13 +65,28 @@ const TESTIMONIALS: Testimonial[] = [
   },
 ];
 
-// Each column gets its own 2-card subset, scroll speed and direction, so the
+const PHOTOS = [
+  "/community/photo-1.png",
+  "/community/photo-2.png",
+  "/community/photo-3.png",
+  "/community/photo-4.png",
+  "/community/photo-5.png",
+  "/community/photo-6.png",
+];
+
+type ColumnItem = { kind: "testimonial"; data: Testimonial } | { kind: "photo"; src: string };
+
+const t = (i: number): ColumnItem => ({ kind: "testimonial", data: TESTIMONIALS[i] });
+const p = (i: number): ColumnItem => ({ kind: "photo", src: PHOTOS[i] });
+
+// Each column mixes testimonial cards with real community photos (matching
+// the real site's masonry look), at its own scroll speed/direction so the
 // four columns don't move in visual lockstep.
-const COLUMNS: { items: Testimonial[]; duration: number; reverse: boolean }[] = [
-  { items: [TESTIMONIALS[0], TESTIMONIALS[1]], duration: 22, reverse: false },
-  { items: [TESTIMONIALS[2], TESTIMONIALS[3]], duration: 26, reverse: true },
-  { items: [TESTIMONIALS[1], TESTIMONIALS[2]], duration: 24, reverse: false },
-  { items: [TESTIMONIALS[3], TESTIMONIALS[0]], duration: 28, reverse: true },
+const COLUMNS: { items: ColumnItem[]; duration: number; reverse: boolean }[] = [
+  { items: [t(0), p(0), t(1)], duration: 24, reverse: false },
+  { items: [t(2), p(1), p(2)], duration: 28, reverse: true },
+  { items: [p(3), t(3), p(4)], duration: 26, reverse: false },
+  { items: [p(5), t(0), t(2)], duration: 30, reverse: true },
 ];
 
 function TestimonialCard({ testimonial }: { testimonial: Testimonial }) {
@@ -116,13 +128,21 @@ function TestimonialCard({ testimonial }: { testimonial: Testimonial }) {
   );
 }
 
+function PhotoCard({ src }: { src: string }) {
+  return (
+    <div className="aspect-[4/3] w-full overflow-hidden rounded-2xl">
+      <img src={src} alt="" className="h-full w-full object-cover" />
+    </div>
+  );
+}
+
 function TestimonialColumn({
   items,
   duration,
   reverse,
   className = "",
 }: {
-  items: Testimonial[];
+  items: ColumnItem[];
   duration: number;
   reverse: boolean;
   className?: string;
@@ -138,10 +158,43 @@ function TestimonialColumn({
           animation: `${reverse ? "community-scroll-reverse" : "community-scroll"} ${duration}s linear infinite`,
         }}
       >
-        {track.map((t, i) => (
-          <TestimonialCard key={i} testimonial={t} />
+        {track.map((item, i) =>
+          item.kind === "testimonial" ? (
+            <TestimonialCard key={i} testimonial={item.data} />
+          ) : (
+            <PhotoCard key={i} src={item.src} />
+          ),
+        )}
+      </div>
+    </div>
+  );
+}
+
+function GraduatesPill() {
+  const avatars = ["/community/avatar-1.png", "/community/avatar-2.png", "/community/avatar-3.png"];
+  return (
+    <div className="flex items-center gap-3 rounded-pill bg-ink py-2 pl-2 pr-4 sm:gap-4 sm:py-2.5 sm:pl-2.5 sm:pr-5">
+      <div className="flex items-center">
+        {avatars.map((src, i) => (
+          <img
+            key={src}
+            src={src}
+            alt=""
+            className="h-7 w-7 rounded-full border-2 border-ink object-cover"
+            style={{ marginLeft: i === 0 ? 0 : -10 }}
+          />
         ))}
       </div>
+      <span className="font-['Plus_Jakarta_Sans:Regular',sans-serif] text-xs text-white/90 sm:text-sm">
+        +500.000 graduados
+      </span>
+      <span className="h-5 w-px bg-white/15" aria-hidden="true" />
+      <button
+        type="button"
+        className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-xs text-white sm:text-sm"
+      >
+        Ver opiniones
+      </button>
     </div>
   );
 }
@@ -177,16 +230,25 @@ export function Community() {
         La comunidad online y en vivo más grande de Latinoamérica
       </h2>
 
-      <div className="community-row mx-auto flex max-w-[1350px] gap-3 sm:gap-5">
-        {COLUMNS.map((col, i) => (
-          <TestimonialColumn
-            key={i}
-            items={col.items}
-            duration={col.duration}
-            reverse={col.reverse}
-            className={i === 0 || i === COLUMNS.length - 1 ? "hidden sm:block" : ""}
-          />
-        ))}
+      <div className="relative">
+        <div className="community-row mx-auto flex max-w-[1350px] gap-3 sm:gap-5">
+          {COLUMNS.map((col, i) => (
+            <TestimonialColumn
+              key={i}
+              items={col.items}
+              duration={col.duration}
+              reverse={col.reverse}
+              className={i === 0 || i === COLUMNS.length - 1 ? "hidden sm:block" : ""}
+            />
+          ))}
+        </div>
+
+        {/* Bottom fade into the pill, so the carousel doesn't end on a hard edge */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-cream to-transparent sm:h-56" />
+
+        <div className="absolute inset-x-0 bottom-4 flex justify-center sm:bottom-8">
+          <GraduatesPill />
+        </div>
       </div>
     </section>
   );
