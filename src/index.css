@@ -41,6 +41,17 @@
   --radius-pill: 9999px;
 }
 
+/* Light graph-paper grid background — used only on /limbo (see
+   src/pages/Limbo.tsx), per that page's own lighter/friendlier tone
+   (landing-arquitectura-ia.md) instead of the site's cream surfaces. */
+.bg-grid {
+  background-color: #fdfdfc;
+  background-image:
+    linear-gradient(to right, rgba(38, 7, 0, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(38, 7, 0, 0.05) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
 /*
  * NOTE on fonts: the @font-face rules below register weight-specific family
  * names ("Plus Jakarta Sans:SemiBold", "Inter:Bold", ...) — that's the exact

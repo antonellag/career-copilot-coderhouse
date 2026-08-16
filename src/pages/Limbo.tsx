@@ -1,40 +1,37 @@
 import { motion } from "framer-motion";
-import { ArrowLeft, ArrowUp, Sparkles } from "lucide-react";
+import { ArrowLeft, Send, Settings2, Sparkles, Wand2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { CoderhouseLogo } from "@/components/CoderhouseLogo";
+import { LimboSidebar } from "@/components/limbo/LimboSidebar";
 import { extractCareerProfile } from "@/lib/ai/careerProfile";
 import { useChat } from "@/lib/ai/useChat";
 
 /**
  * /limbo — the discovery agent (mode: "discovery", see api/_lib/prompts.ts).
  * Independent space, reached only from the hero CTA (never linked in the
- * site navbar). Deliberately lighter/friendlier than the rest of the site —
- * a conversational creation tool (Notion AI mood), not the institutional
- * Coderhouse look: soft-bordered cards, a big friendly headline up top, the
- * conversation box docked at the bottom of the screen.
+ * site navbar). Lighter/friendlier than the rest of the site: white/grid
+ * background, a floating step sidebar, and a conversational start screen —
+ * per this session's reference screenshot, closer to a creation tool
+ * (Notion AI mood) than the institutional Coderhouse look.
  *
  * "Limbo" is this session's internal codename only (see
  * landing-arquitectura-ia.md) — it never appears in user-facing copy here.
  */
 
-const OPENING_PROMPT =
-  "Hola, quiero descubrir qué podría estudiar. Contame vos por dónde empezamos.";
+const CATEGORIES = [
+  { label: "Programación y desarrollo", image: "/limbo/categoria-programacion.png" },
+  { label: "Marketing digital", image: "/limbo/categoria-marketing.png" },
+  { label: "Inteligencia Artificial", image: "/limbo/categoria-ia.png", badge: "NUEVO" },
+  { label: "Diseño UX/UI", image: "/limbo/categoria-uxui.png" },
+  { label: "Data", image: "/limbo/categoria-data.png" },
+];
 
 export default function Limbo() {
   const { messages, send, isLoading, error } = useChat("discovery");
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const started = useRef(false);
-
-  // Kick off the conversation automatically so the person lands on a live
-  // question, not an empty box waiting for them to guess what to type.
-  useEffect(() => {
-    if (started.current) return;
-    started.current = true;
-    send(OPENING_PROMPT);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -46,45 +43,92 @@ export default function Limbo() {
     [lastAssistant],
   );
 
-  const visibleMessages = messages
-    .filter((m) => !(m.role === "user" && m.content === OPENING_PROMPT))
-    .map((m) => (m.role === "assistant" ? { ...m, content: extractCareerProfile(m.content).cleanText } : m));
+  const visibleMessages = messages.map((m) =>
+    m.role === "assistant" ? { ...m, content: extractCareerProfile(m.content).cleanText } : m,
+  );
+
+  const startConversation = (openingMessage: string) => {
+    if (started.current) return;
+    started.current = true;
+    send(openingMessage);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
-    send(input);
+    startConversation(input);
     setInput("");
   };
 
+  const handleCategoryClick = (label: string) => {
+    startConversation(`Me interesa explorar ${label}. Contame vos por dónde empezamos.`);
+  };
+
   if (profile && profile.paths.length > 0) {
-    return <CareerProfileResult paths={profile.paths} />;
+    return (
+      <LimboShell>
+        <CareerProfileResult paths={profile.paths} />
+      </LimboShell>
+    );
   }
 
   return (
-    <div className="flex h-screen flex-col bg-cream-soft">
-      <header className="flex shrink-0 items-center justify-between px-5 py-4 sm:px-8">
-        <Link to="/" className="flex items-center gap-2 text-ink-muted transition-colors hover:text-ink">
-          <ArrowLeft className="h-4 w-4" />
-          <CoderhouseLogo className="h-4 w-auto" />
-        </Link>
-        <span className="flex items-center gap-1.5 rounded-pill bg-white px-3 py-1.5 font-['Inter:Regular',sans-serif] text-xs text-ink-muted shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
-          <Sparkles className="h-3.5 w-3.5 text-brand-hover" />
-          Career Copilot
-        </span>
-      </header>
+    <LimboShell>
+      {messages.length === 0 ? (
+        <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
+          <motion.h1
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="font-['Inter:Regular',sans-serif] text-[32px] leading-tight text-ink sm:text-[44px]"
+          >
+            Hablemos sobre
+            <br />
+            tu vocación y futuro
+          </motion.h1>
+          <motion.p
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="mt-3 font-['Inter:Regular',sans-serif] text-sm text-ink-muted sm:text-base"
+          >
+            Te ayudamos a gestionar tu plan estudiantil para convertirte en profesional
+          </motion.p>
 
-      <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col overflow-hidden px-5 sm:px-8">
-        <motion.h1
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="shrink-0 pt-2 pb-6 text-center font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-[28px] leading-tight text-ink sm:text-[34px]"
-        >
-          Descubramos qué estudiar
-        </motion.h1>
-
-        <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto pb-4">
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="mt-10 flex flex-wrap justify-center gap-4"
+          >
+            {CATEGORIES.map((c) => (
+              <button
+                key={c.label}
+                type="button"
+                onClick={() => handleCategoryClick(c.label)}
+                className="w-[150px] rounded-2xl border border-border-soft bg-white p-2.5 text-left shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-transform hover:scale-[1.03]"
+              >
+                <div className="mb-2 flex items-center justify-between gap-1">
+                  <span className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-xs leading-tight text-ink">
+                    {c.label}
+                  </span>
+                  {c.badge && (
+                    <span className="shrink-0 rounded-pill bg-brand-hover px-1.5 py-0.5 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-[9px] text-white">
+                      {c.badge}
+                    </span>
+                  )}
+                </div>
+                <img
+                  src={c.image}
+                  alt=""
+                  className="h-20 w-full rounded-xl object-cover"
+                />
+              </button>
+            ))}
+          </motion.div>
+        </div>
+      ) : (
+        <div ref={scrollRef} className="mx-auto w-full max-w-2xl flex-1 space-y-4 overflow-y-auto px-6 py-8">
           {visibleMessages.map((m, i) => (
             <motion.div
               key={i}
@@ -105,33 +149,78 @@ export default function Limbo() {
               Pensando…
             </div>
           )}
-          {error && (
-            <p className="font-['Inter:Regular',sans-serif] text-sm text-red-600">{error}</p>
-          )}
+          {error && <p className="font-['Inter:Regular',sans-serif] text-sm text-red-600">{error}</p>}
         </div>
+      )}
 
-        <form
-          onSubmit={handleSubmit}
-          className="shrink-0 py-5"
-        >
-          <div className="flex items-center gap-2 rounded-3xl border border-border-soft bg-white p-2 shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Escribí tu respuesta…"
-              disabled={isLoading}
-              className="flex-1 bg-transparent px-3 py-2 font-['Inter:Regular',sans-serif] text-[15px] text-ink outline-none placeholder:text-ink-muted"
-            />
-            <button
-              type="submit"
-              disabled={isLoading || !input.trim()}
-              aria-label="Enviar"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-hover text-white transition-transform hover:scale-105 disabled:opacity-40"
+      <form onSubmit={handleSubmit} className="mx-auto w-full max-w-2xl shrink-0 px-6 pb-8">
+        <div className="flex items-center gap-2 rounded-pill border border-border-soft bg-white p-2 shadow-[0_8px_24px_rgba(0,0,0,0.08)]">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-hover text-white">
+            <Wand2 className="h-4 w-4" strokeWidth={2} />
+          </span>
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Hablá con el Experto IA de Coderhouse"
+            disabled={isLoading}
+            className="flex-1 bg-transparent px-1 py-2 font-['Inter:Regular',sans-serif] text-sm text-ink outline-none placeholder:text-ink-muted"
+          />
+          <button
+            type="submit"
+            disabled={isLoading || !input.trim()}
+            aria-label="Enviar"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-hover text-white transition-transform hover:scale-105 disabled:opacity-40"
+          >
+            <Send className="h-4 w-4" />
+          </button>
+        </div>
+      </form>
+    </LimboShell>
+  );
+}
+
+function LimboShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="bg-grid flex h-screen">
+      <div className="hidden p-4 lg:block">
+        <LimboSidebar />
+      </div>
+
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <header className="flex shrink-0 items-center justify-between gap-3 px-5 py-4 sm:px-8">
+          <Link
+            to="/"
+            className="flex items-center gap-2 text-ink-muted transition-colors hover:text-ink lg:hidden"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <CoderhouseLogo className="h-4 w-auto" />
+          </Link>
+          <span className="hidden items-center gap-1.5 rounded-pill bg-white px-3 py-1.5 font-['Inter:Regular',sans-serif] text-xs text-ink-muted shadow-[0_1px_4px_rgba(0,0,0,0.06)] lg:flex">
+            <Sparkles className="h-3.5 w-3.5 text-brand-hover" />
+            Career Copilot
+          </span>
+
+          <div className="ml-auto flex items-center gap-3">
+            <Link
+              to="/"
+              className="rounded-pill bg-white px-4 py-2 font-['Inter:Regular',sans-serif] text-xs text-ink-muted shadow-[0_1px_4px_rgba(0,0,0,0.06)] transition-colors hover:text-ink sm:text-sm"
             >
-              <ArrowUp className="h-4 w-4" />
+              Omitir test
+            </Link>
+            <button
+              type="button"
+              aria-label="Configuración"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-ink-muted shadow-[0_1px_4px_rgba(0,0,0,0.06)]"
+            >
+              <Settings2 className="h-4 w-4" />
             </button>
+            <div className="h-9 w-9 overflow-hidden rounded-full border border-border-soft bg-white shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
+              <img src="/community/avatar-1.png" alt="" className="h-full w-full object-cover" />
+            </div>
           </div>
-        </form>
+        </header>
+
+        {children}
       </div>
     </div>
   );
@@ -139,16 +228,8 @@ export default function Limbo() {
 
 function CareerProfileResult({ paths }: { paths: { title: string; why: string }[] }) {
   return (
-    <div className="min-h-screen bg-cream-soft px-5 py-12 sm:px-8">
+    <div className="flex-1 overflow-y-auto px-6 py-8 sm:px-8">
       <div className="mx-auto max-w-2xl">
-        <Link
-          to="/"
-          className="mb-8 flex w-fit items-center gap-2 text-ink-muted transition-colors hover:text-ink"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          <CoderhouseLogo className="h-4 w-auto" />
-        </Link>
-
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
