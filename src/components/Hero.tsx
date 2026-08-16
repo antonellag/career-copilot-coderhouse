@@ -87,7 +87,7 @@ export function Hero() {
           transition={{ duration: 0.6, ease: "easeOut" }}
           className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-[32px] leading-[1.15] tracking-[-0.02em] text-white sm:text-[44px]"
         >
-          ¿Qué querés lograr?
+          ¿Sabés qué te apasiona?
         </motion.h1>
 
         <motion.p
@@ -95,7 +95,8 @@ export function Hero() {
           transition={{ duration: 0.6, ease: "easeOut" }}
           className="font-['Inter:Regular',sans-serif] text-base text-white/90 sm:text-lg"
         >
-          Career Copilot te ayuda a descubrir tu camino antes de elegir qué estudiar.
+          Career Copilot te ayuda a descubrir tu camino antes de elegir qué estudiar, tomá las
+          clases que te apasionan, en vivo con expertos de la industria.
         </motion.p>
 
         <motion.div variants={fadeUp} transition={{ duration: 0.6, ease: "easeOut" }}>
