@@ -26,10 +26,13 @@ type ChatMessage = {
   content: string;
 };
 
-// gemini-2.0-flash was retired by Google (confirmed live in production via
-// `vercel logs`: 404 "This model ... is no longer available"). Swapped to
-// gemini-2.5-flash, confirmed still served as of this session.
-const MODEL_NAME = "gemini-2.5-flash";
+// gemini-2.0-flash, then gemini-2.5-flash, both 404'd in production
+// ("no longer available" / "no longer available to new users" — confirmed
+// live via `vercel logs`). New API keys are restricted from the older model
+// generations entirely, regardless of the model still existing for
+// pre-existing users/projects. gemini-3.5-flash is Google's current
+// recommendation for new keys as of this session.
+const MODEL_NAME = "gemini-3.5-flash";
 
 function isChatMode(value: unknown): value is ChatMode {
   return value === "sales" || value === "discovery";
