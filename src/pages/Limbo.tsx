@@ -1,11 +1,12 @@
 import { motion } from "framer-motion";
-import { ArrowLeft, ChevronLeft, ChevronRight, Mic, Plus, Send, Settings2, Wand2 } from "lucide-react";
+import { AlertCircle, ArrowLeft, ChevronLeft, ChevronRight, FileText, Loader2, Plus, Send, Settings2, Wand2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { CoderhouseLogo } from "@/components/CoderhouseLogo";
 import { LimboSidebar } from "@/components/limbo/LimboSidebar";
 import { extractCareerProfile } from "@/lib/ai/careerProfile";
 import { useChat } from "@/lib/ai/useChat";
+import { extractPdfText } from "@/lib/pdf/extractPdfText";
 
 /**
  * /limbo — the discovery agent (mode: "discovery", see api/_lib/prompts.ts).
@@ -31,11 +32,41 @@ const CATEGORIES = [
   { label: "Negocios", image: "/limbo/categoria-negocios.png" },
 ];
 
+type CvState =
+  | { status: "idle" }
+  | { status: "loading"; fileName: string }
+  | { status: "ready"; fileName: string; text: string }
+  | { status: "error"; message: string };
+
+const CV_ERROR_MESSAGES: Record<string, string> = {
+  "not-a-pdf": "Por ahora solo podemos leer archivos PDF.",
+  "too-large": "El archivo pesa más de 8MB — probá con uno más liviano.",
+  "empty-or-scanned":
+    "No pudimos leer texto en este PDF (puede ser una imagen escaneada). Sin problema, seguimos por acá.",
+  "parse-failed": "Hubo un problema al leer el PDF. Sin problema, seguimos por acá.",
+};
+
 export default function Limbo() {
   const { messages, send, isLoading, error } = useChat("discovery");
   const [input, setInput] = useState("");
+  const [cv, setCv] = useState<CvState>({ status: "idle" });
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const started = useRef(false);
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // lets the person re-pick the same file later if they remove it
+    if (!file) return;
+
+    setCv({ status: "loading", fileName: file.name });
+    const result = await extractPdfText(file);
+    if (result.ok) {
+      setCv({ status: "ready", fileName: file.name, text: result.text });
+    } else {
+      setCv({ status: "error", message: CV_ERROR_MESSAGES[result.reason] });
+    }
+  };
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -54,7 +85,14 @@ export default function Limbo() {
   const startConversation = (openingMessage: string) => {
     if (started.current) return;
     started.current = true;
-    send(openingMessage);
+    // If a CV finished processing before the first message goes out, its
+    // extracted text rides along as hidden context for the model — the
+    // chat bubble still shows just `openingMessage`, nothing extra.
+    const apiContent =
+      cv.status === "ready"
+        ? `--- CV adjunto (texto extraído) ---\n${cv.text}\n--- fin CV ---\n\n${openingMessage}`
+        : undefined;
+    send(openingMessage, apiContent);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -135,44 +173,79 @@ export default function Limbo() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="mx-auto w-full max-w-2xl shrink-0 px-6 pb-8">
-        <div className="flex items-center gap-2 rounded-pill border border-border-soft bg-white p-2 shadow-[0_8px_24px_rgba(0,0,0,0.08)]">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-hover text-white">
-            <Wand2 className="h-4 w-4" strokeWidth={2} />
-          </span>
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Hablá con el Experto IA de Coderhouse"
-            disabled={isLoading}
-            className="flex-1 bg-transparent px-1 py-2 font-['Inter:Regular',sans-serif] text-sm text-ink outline-none placeholder:text-ink-muted"
-          />
-          {/* Attach + voice input — visual affordances for now, not wired up
-              (file upload/speech-to-text is beyond this session's scope). */}
-          <button
-            type="button"
-            aria-label="Adjuntar documento"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-ink/5 hover:text-ink"
-          >
-            <Plus className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            aria-label="Hablar por audio"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-ink/5 hover:text-ink"
-          >
-            <Mic className="h-4 w-4" />
-          </button>
-          <button
-            type="submit"
-            disabled={isLoading || !input.trim()}
-            aria-label="Enviar"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-hover text-white transition-transform hover:scale-105 disabled:opacity-40"
-          >
-            <Send className="h-4 w-4" />
-          </button>
-        </div>
-      </form>
+      <div className="mx-auto w-full max-w-2xl shrink-0 px-6 pb-8">
+        {/* CV status row — only rendered once a file's been picked, sits right
+            above the input pill so it doesn't shift the pill's own height. */}
+        {cv.status !== "idle" && (
+          <div className="mb-2 flex items-center gap-2 px-1">
+            {cv.status === "loading" && (
+              <span className="flex items-center gap-1.5 font-['Inter:Regular',sans-serif] text-xs text-ink-muted">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Leyendo {cv.fileName}…
+              </span>
+            )}
+            {cv.status === "ready" && (
+              <span className="flex items-center gap-1.5 rounded-pill bg-white px-3 py-1.5 font-['Inter:Regular',sans-serif] text-xs text-ink shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
+                <FileText className="h-3.5 w-3.5 text-brand-hover" />
+                {cv.fileName}
+                <button
+                  type="button"
+                  onClick={() => setCv({ status: "idle" })}
+                  aria-label="Quitar CV adjunto"
+                  className="ml-1 text-ink-muted hover:text-ink"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </span>
+            )}
+            {cv.status === "error" && (
+              <span className="flex items-center gap-1.5 font-['Inter:Regular',sans-serif] text-xs text-red-600">
+                <AlertCircle className="h-3.5 w-3.5" />
+                {cv.message}
+              </span>
+            )}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit}>
+          <div className="flex items-center gap-2 rounded-pill border border-border-soft bg-white p-2 shadow-[0_8px_24px_rgba(0,0,0,0.08)]">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-hover text-white">
+              <Wand2 className="h-4 w-4" strokeWidth={2} />
+            </span>
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Hablá con el Experto IA de Coderhouse"
+              disabled={isLoading}
+              className="flex-1 bg-transparent px-1 py-2 font-['Inter:Regular',sans-serif] text-sm text-ink outline-none placeholder:text-ink-muted"
+            />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/pdf,.pdf"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={cv.status === "loading"}
+              aria-label="Adjuntar CV (PDF)"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-ink/5 hover:text-ink disabled:opacity-40"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+            <button
+              type="submit"
+              disabled={isLoading || !input.trim()}
+              aria-label="Enviar"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-hover text-white transition-transform hover:scale-105 disabled:opacity-40"
+            >
+              <Send className="h-4 w-4" />
+            </button>
+          </div>
+        </form>
+      </div>
     </LimboShell>
   );
 }
