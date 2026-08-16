@@ -64,12 +64,17 @@ export function Hero() {
         style={{ backgroundImage: `url("${NOISE_DATA_URI}")` }}
       />
 
-      {/* Readability gradient: transparent center, darker toward the edges/bottom */}
+      {/* Readability gradients: darker toward the top/bottom edges, AND darker on
+          the left where the copy always sits (mobile-top or desktop-centered) —
+          this replaces a solid card behind the text, so contrast comes from
+          shading the photo itself instead of covering it. */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{
-          background:
-            "linear-gradient(180deg, rgba(38,7,0,0.35) 0%, rgba(38,7,0,0) 30%, rgba(38,7,0,0) 55%, rgba(38,7,0,0.75) 100%)",
+          background: [
+            "linear-gradient(180deg, rgba(38,7,0,0.4) 0%, rgba(38,7,0,0.05) 30%, rgba(38,7,0,0.05) 55%, rgba(38,7,0,0.75) 100%)",
+            "linear-gradient(90deg, rgba(15,4,0,0.65) 0%, rgba(15,4,0,0.35) 35%, rgba(15,4,0,0) 65%)",
+          ].join(", "),
         }}
       />
 
@@ -80,40 +85,37 @@ export function Hero() {
         initial="hidden"
         animate="show"
         transition={{ staggerChildren: 0.12, delayChildren: 0.2 }}
-        className="absolute inset-0 flex flex-col items-start justify-start px-6 pt-28 text-left sm:justify-center sm:px-16 sm:pt-0"
+        className="absolute inset-0 flex flex-col items-start justify-start gap-5 px-6 pt-28 text-left sm:max-w-xl sm:justify-center sm:px-16 sm:pt-0"
       >
-        {/* Frosted glass card — the illustration behind was too busy for
-            white text straight on top of it, so the copy gets its own
-            translucent, blurred surface instead of relying only on the
-            gradient overlay. */}
-        <div className="flex flex-col items-start gap-5 rounded-3xl border border-white/30 bg-white/20 p-6 backdrop-blur-md sm:max-w-xl sm:p-8">
-          <motion.h1
-            variants={fadeUp}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-            className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-[32px] uppercase leading-[1.15] tracking-[-0.02em] text-white sm:text-[44px]"
-          >
-            ¿Sabés qué te apasiona?
-          </motion.h1>
+        {/* No card behind the copy anymore — it hid too much of the illustration.
+            Legibility instead comes from the left/edge gradients above plus a
+            drop-shadow on the text itself, so it reads on any part of the photo. */}
+        <motion.h1
+          variants={fadeUp}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-[32px] uppercase leading-[1.15] tracking-[-0.02em] text-white [text-shadow:0_2px_20px_rgba(0,0,0,0.55),0_1px_2px_rgba(0,0,0,0.5)] sm:text-[44px]"
+        >
+          ¿Sabés qué te apasiona?
+        </motion.h1>
 
-          <motion.p
-            variants={fadeUp}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-            className="font-['Inter:Regular',sans-serif] text-base text-white/90 sm:text-lg"
-          >
-            Career Copilot te ayuda a descubrir tu camino antes de elegir qué estudiar, tomá las
-            clases que te apasionan, en vivo con expertos de la industria.
-          </motion.p>
+        <motion.p
+          variants={fadeUp}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          className="font-['Inter:Regular',sans-serif] text-base text-white [text-shadow:0_2px_16px_rgba(0,0,0,0.6),0_1px_2px_rgba(0,0,0,0.55)] sm:text-lg"
+        >
+          Career Copilot te ayuda a descubrir tu camino antes de elegir qué estudiar, tomá las
+          clases que te apasionan, en vivo con expertos de la industria.
+        </motion.p>
 
-          <motion.div variants={fadeUp} transition={{ duration: 0.6, ease: "easeOut" }}>
-            <Link
-              to="/limbo"
-              className="group inline-flex items-center gap-2.5 rounded-pill bg-brand-hover px-8 py-4 font-['Plus_Jakarta_Sans:Medium',sans-serif] text-sm text-white shadow-[0_1px_1px_rgba(0,0,0,0.05)] transition-transform hover:scale-[1.03]"
-            >
-              Probá Career Copilot
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-            </Link>
-          </motion.div>
-        </div>
+        <motion.div variants={fadeUp} transition={{ duration: 0.6, ease: "easeOut" }}>
+          <Link
+            to="/limbo"
+            className="group inline-flex items-center gap-2.5 rounded-pill bg-brand-hover px-8 py-4 font-['Plus_Jakarta_Sans:Medium',sans-serif] text-sm text-white shadow-[0_2px_12px_rgba(0,0,0,0.25)] transition-transform hover:scale-[1.03]"
+          >
+            Probá Career Copilot
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+          </Link>
+        </motion.div>
       </motion.div>
     </section>
   );
