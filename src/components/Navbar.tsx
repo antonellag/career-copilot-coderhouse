@@ -41,7 +41,7 @@ export function Navbar() {
           sits directly in MarketingLayout's page-length flow. */}
       <nav className="sticky top-0 z-30 flex items-center justify-between gap-4 bg-cream px-4 py-2.5 sm:px-8 sm:py-3">
         <a href="/" className="shrink-0 text-ink">
-          <CoderhouseLogo className="h-6 w-auto sm:h-7" />
+          <CoderhouseLogo className="h-8 w-auto sm:h-10" />
         </a>
 
         <ul className="hidden items-center gap-1 lg:flex">
