@@ -104,6 +104,14 @@ export function Hero() {
         {/* No card behind the copy anymore — it hid too much of the illustration.
             Legibility instead comes from the left/edge gradients above plus a
             drop-shadow on the text itself, so it reads on any part of the photo. */}
+        <motion.span
+          variants={fadeUp}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          className="rounded-pill border border-white/40 bg-white/20 px-4 py-1.5 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-xs text-white backdrop-blur-md"
+        >
+          Nueva Coder funcionalidad
+        </motion.span>
+
         <motion.h1
           variants={fadeUp}
           transition={{ duration: 0.6, ease: "easeOut" }}
