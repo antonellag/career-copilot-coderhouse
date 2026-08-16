@@ -73,17 +73,19 @@ export function Hero() {
         }}
       />
 
-      {/* Copy + CTA */}
+      {/* Copy + CTA — left-aligned. On mobile the character fills most of the
+          frame, so the copy sits at the top, above it; from sm up there's
+          room to vertically center it alongside the character instead. */}
       <motion.div
         initial="hidden"
         animate="show"
         transition={{ staggerChildren: 0.12, delayChildren: 0.2 }}
-        className="absolute inset-x-0 bottom-0 flex flex-col items-center gap-5 px-6 pb-14 text-center sm:pb-16"
+        className="absolute inset-0 flex flex-col items-start justify-start gap-5 px-6 pt-28 text-left sm:max-w-xl sm:justify-center sm:px-16 sm:pt-0"
       >
         <motion.h1
           variants={fadeUp}
           transition={{ duration: 0.6, ease: "easeOut" }}
-          className="max-w-3xl font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-[32px] leading-[1.15] tracking-[-0.02em] text-white sm:text-[44px]"
+          className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-[32px] leading-[1.15] tracking-[-0.02em] text-white sm:text-[44px]"
         >
           ¿Qué querés lograr?
         </motion.h1>
@@ -91,7 +93,7 @@ export function Hero() {
         <motion.p
           variants={fadeUp}
           transition={{ duration: 0.6, ease: "easeOut" }}
-          className="max-w-xl font-['Inter:Regular',sans-serif] text-base text-white/90 sm:text-lg"
+          className="font-['Inter:Regular',sans-serif] text-base text-white/90 sm:text-lg"
         >
           Career Copilot te ayuda a descubrir tu camino antes de elegir qué estudiar.
         </motion.p>
