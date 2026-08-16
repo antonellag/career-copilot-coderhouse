@@ -1,7 +1,8 @@
 {
-  "description": "Effortlessly convert Figma designs into pixel-perfect code, ensuring accurate replication for developers and designers seeking efficiency and precision.",
+  "title": "Career Copilot | Coderhouse",
+  "description": "Descubrí tu camino profesional antes de elegir qué estudiar, con Career Copilot de Coderhouse.",
   "robots": {
-    "index": false
+    "index": true
   },
   "accessibility": {
     "addBypassLinks": false,
