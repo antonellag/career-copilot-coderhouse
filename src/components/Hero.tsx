@@ -17,6 +17,7 @@ import { Link } from "react-router-dom";
  * files (no bundler hashing needed while art is still a placeholder).
  */
 const BACK_LAYER_SRC = "/hero/back-clouds.png";
+const SUN_LAYER_SRC = "/hero/middle-sun.png";
 const FRONT_LAYER_SRC = "/hero/front-character.png";
 
 // Inline SVG feTurbulence noise, used as a subtle grain overlay so the hero
@@ -47,6 +48,19 @@ export function Hero() {
         className="absolute inset-0 h-full w-full object-cover object-[center_20%]"
         animate={{ x: ["0%", "-3%", "0%"], scale: [1, 1.05, 1] }}
         transition={{ duration: 30, repeat: Infinity, ease: "easeInOut" }}
+      />
+
+      {/* Coderhouse "sun" iso, sitting between the sky and the mountain layer
+          (in front of the clouds, behind the island's right edge) — same spot
+          as the reference. Gentle float + glow pulse, independent of the
+          other two layers' motion. */}
+      <motion.img
+        src={SUN_LAYER_SRC}
+        alt=""
+        aria-hidden="true"
+        className="absolute right-[4%] top-[10%] h-auto w-20 sm:right-[24%] sm:top-[24%] sm:w-44 lg:w-52"
+        animate={{ y: [0, -8, 0], opacity: [0.9, 1, 0.9] }}
+        transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
       />
 
       {/* Foreground layer: island + character, subtle independent drift for parallax depth. */}
