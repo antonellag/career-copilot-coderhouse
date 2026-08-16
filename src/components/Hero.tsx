@@ -117,7 +117,7 @@ export function Hero() {
         <motion.h1
           variants={fadeUp}
           transition={{ duration: 0.6, ease: "easeOut" }}
-          className="font-['Montserrat',sans-serif] text-[32px] font-extrabold uppercase leading-[1.15] tracking-[-0.02em] text-white [text-shadow:0_2px_20px_rgba(0,0,0,0.55),0_1px_2px_rgba(0,0,0,0.5)] sm:text-[44px]"
+          className="font-['Boldonse',sans-serif] text-[26px] uppercase leading-[1.25] tracking-[-0.01em] text-white [text-shadow:0_2px_20px_rgba(0,0,0,0.55),0_1px_2px_rgba(0,0,0,0.5)] sm:text-[36px]"
         >
           ¿Sabés qué te apasiona?
         </motion.h1>

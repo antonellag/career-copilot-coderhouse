@@ -1,9 +1,10 @@
 @import 'tailwindcss';
-/* Montserrat ExtraBold — used only for the home hero headline, per explicit
-   request. Not part of the site's existing font pair (Plus Jakarta Sans /
-   Inter), so it's pulled from Google Fonts rather than invented as a local
-   @font-face guess. */
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@800&display=swap');
+/* Display font tried for the home hero headline only, per explicit request.
+   Not part of the site's existing font pair (Plus Jakarta Sans / Inter), so
+   it's pulled from Google Fonts rather than invented as a local @font-face
+   guess. Boldonse ships a single weight (400) — it's a display face, not a
+   weight family like Montserrat. */
+@import url('https://fonts.googleapis.com/css2?family=Boldonse&display=swap');
 
 /*
  * Design tokens — Tailwind v4 theme layer.
