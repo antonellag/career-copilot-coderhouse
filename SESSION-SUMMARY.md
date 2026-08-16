@@ -1,5 +1,26 @@
 # Career Copilot — resumen de la sesión (hackathon CoderCUP IA)
 
+## ✅ Estado del deploy (verificado en producción real)
+
+**URL pública: https://career-copilot-coderhouse.vercel.app** — funcionando de punta a punta,
+verificado en el navegador contra la URL real (no localhost), sin login de Vercel de por medio.
+
+Bugs reales que solo aparecían en producción (no en `vercel dev` local) y se arreglaron:
+- `api/chat.ts` importaba `./_lib/prompts` sin extensión — Node ESM nativo (lo que corre Vercel
+  en prod) lo resuelve distinto a la resolución de bundler que usa `vercel dev`. Fix: `./_lib/prompts.js`.
+- El modelo `gemini-2.0-flash` (y después `gemini-2.5-flash`) devolvían 404 "no longer available
+  [to new users]" — Google restringe modelos viejos para API keys nuevas. Modelo final:
+  **`gemini-3.5-flash`**.
+- Había un `pnpm-lock.yaml` viejo compitiendo con `package-lock.json` — se borró para que Vercel
+  use npm sin ambigüedad.
+- Se agregó `vercel.json` con rewrite catch-all a `index.html` (si no, entrar directo a `/limbo`
+  tiraba 404 — probado de verdad, no asumido).
+
+Si el modelo vuelve a fallar en el futuro (Google deprecia modelos seguido), el error real
+siempre aparece en `npx vercel logs <url-del-deploy>` — no confiar en el mensaje genérico
+"The AI model call failed" que devuelve la API, siempre mirar los logs del lado del servidor.
+
+
 Deadline del hackathon: **23/8**. Este documento resume todo lo construido en esta sesión de
 Claude Code, para retomar el trabajo en otra conversación sin perder contexto.
 
