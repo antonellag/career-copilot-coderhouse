@@ -1,4 +1,9 @@
 @import 'tailwindcss';
+/* Montserrat ExtraBold — used only for the home hero headline, per explicit
+   request. Not part of the site's existing font pair (Plus Jakarta Sans /
+   Inter), so it's pulled from Google Fonts rather than invented as a local
+   @font-face guess. */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@800&display=swap');
 
 /*
  * Design tokens — Tailwind v4 theme layer.
