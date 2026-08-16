@@ -26,7 +26,10 @@ type ChatMessage = {
   content: string;
 };
 
-const MODEL_NAME = "gemini-2.0-flash";
+// gemini-2.0-flash was retired by Google (confirmed live in production via
+// `vercel logs`: 404 "This model ... is no longer available"). Swapped to
+// gemini-2.5-flash, confirmed still served as of this session.
+const MODEL_NAME = "gemini-2.5-flash";
 
 function isChatMode(value: unknown): value is ChatMode {
   return value === "sales" || value === "discovery";

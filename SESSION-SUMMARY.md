@@ -60,7 +60,7 @@ página). Se usa en `MarketingLayout`, por lo tanto aparece en todo el sitio mar
 
 ### 3. Motor de IA compartido
 - `api/chat.ts` — función serverless de **Vercel** (Node), único punto que llama al modelo.
-  Recibe `{ mode: "sales" | "discovery", messages }`, usa **Gemini** (`gemini-2.0-flash` vía
+  Recibe `{ mode: "sales" | "discovery", messages }`, usa **Gemini** (`gemini-2.5-flash` vía
   `@google/generative-ai`) con el system prompt correspondiente.
 - `api/_lib/prompts.ts` — los dos system prompts (sales/discovery), solo server-side.
 - `src/lib/ai/client.ts` — `sendChatMessage(mode, messages)`, el único punto del cliente que
