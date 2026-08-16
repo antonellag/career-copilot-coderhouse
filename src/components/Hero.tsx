@@ -107,9 +107,11 @@ export function Hero() {
         <motion.span
           variants={fadeUp}
           transition={{ duration: 0.6, ease: "easeOut" }}
-          className="rounded-pill border border-white/40 bg-white/20 px-4 py-1.5 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-xs text-white backdrop-blur-md"
+          className="inline-flex items-center gap-1.5 rounded-pill border border-white/40 bg-white/20 px-4 py-1.5 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-xs text-white backdrop-blur-md"
         >
+          <span aria-hidden="true">🔥</span>
           Nueva Coder funcionalidad
+          <span aria-hidden="true">🔥</span>
         </motion.span>
 
         <motion.h1
