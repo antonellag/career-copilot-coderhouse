@@ -1,5 +1,49 @@
 @import 'tailwindcss';
 
+/*
+ * Design tokens — Tailwind v4 theme layer.
+ * These are NOT new colors: every value here is lifted from the hex literals
+ * already repeated across src/imports/**\/index.tsx (the Figma Make export of
+ * the real Coderhouse site). Centralizing them here means new components can
+ * write `bg-brand`, `text-ink`, `bg-cream`, etc. instead of hardcoding hex,
+ * while staying byte-for-byte the same palette as the rest of the site.
+ * Source lines are the most-repeated bg-[#..]/text-[#..] hits found via grep
+ * across src/imports/1920WLight-1/index.tsx.
+ */
+@theme {
+  /* Brand orange — CTAs, links, active states (bg-[#ff5c2d]/#ff5a1f/#ff632b in the export) */
+  --color-brand: #ff5c2d;
+  --color-brand-dark: #ff5a1f;
+  --color-brand-hover: #ff632b;
+
+  /* Ink — headings and primary text (text-[#260700] on light bg, text-[#09090b] body) */
+  --color-ink: #260700;
+  --color-ink-strong: #09090b;
+  --color-ink-muted: #71717a;
+
+  /* Surfaces — the warm off-white backgrounds used site-wide */
+  --color-cream: #f9f3e9;
+  --color-cream-soft: #fdfcf9;
+  --color-cream-alt: #f8f4ec;
+
+  /* Dark surface — used for badges and the locale picker (bg-[#0f172a] / #260700) */
+  --color-surface-dark: #0f172a;
+
+  /* Neutral border used on cards throughout the export */
+  --color-border-soft: rgba(20, 20, 20, 0.1);
+
+  --radius-pill: 9999px;
+}
+
+/*
+ * NOTE on fonts: the @font-face rules below register weight-specific family
+ * names ("Plus Jakarta Sans:SemiBold", "Inter:Bold", ...) — that's the exact
+ * convention Figma Make uses everywhere in src/imports/**. New components in
+ * this session reuse those same literal family names (e.g.
+ * font-['Plus_Jakarta_Sans:SemiBold',sans-serif]) instead of a `font-heading`
+ * token, because a plain "Plus Jakarta Sans" family was never registered.
+ */
+
 /* Restore Framer elements hidden by animation initial state */
 [data-name="Banner 1 - Desktop"] {
   opacity: 1 !important;

@@ -13892,8 +13892,11 @@ function DivFramer1Exy4CmContainer() {
 function EndOfBodyStart() {
   return (
     <div className="bg-[#f9f3e9] h-[10055.81px] min-h-[900px] relative shrink-0 w-full" data-name="End of bodyStart">
-      <Banner1Desktop />
-      <Hero3D />
+      {/* Hero3D + Banner1Desktop + DivFramer1Exy4CmContainer (old hero + nav) were removed here:
+          replaced by the shared <Hero /> + <PillNavbar /> rendered above this component in
+          src/pages/Home.tsx. The fixed height above is kept because every section below is
+          absolutely positioned relative to this container (Figma Make export) — removing it
+          would collapse the rest of the page. See landing-arquitectura-ia.md / hackathon scope. */}
       <FormatFinder />
       <Categories />
       <Features />
@@ -13901,7 +13904,6 @@ function EndOfBodyStart() {
       <Community />
       <Slogan />
       <DivFramerVxnzioContainer />
-      <DivFramer1Exy4CmContainer />
     </div>
   );
 }
