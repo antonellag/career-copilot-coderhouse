@@ -1,0 +1,10 @@
+{
+  "description": "Effortlessly convert Figma designs into pixel-perfect code, ensuring accurate replication for developers and designers seeking efficiency and precision.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

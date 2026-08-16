@@ -1,0 +1,97 @@
+@import 'tailwindcss';
+
+/* Restore Framer elements hidden by animation initial state */
+[data-name="Banner 1 - Desktop"] {
+  opacity: 1 !important;
+}
+
+/* Allow the center cloud ring and decorative side clouds to render beyond clipping bounds */
+[data-name="Card"] {
+  overflow: visible !important;
+}
+
+[data-name="Slogan"] > div {
+  overflow: visible !important;
+}
+
+@layer utilities {
+  .mask-alpha {
+    mask-mode: alpha;
+    -webkit-mask-mode: alpha;
+  }
+  .mask-intersect {
+    mask-composite: intersect;
+    -webkit-mask-composite: source-in;
+  }
+  .mask-no-clip {
+    mask-clip: border-box;
+    -webkit-mask-clip: border-box;
+  }
+  .mask-no-repeat {
+    mask-repeat: no-repeat;
+    -webkit-mask-repeat: no-repeat;
+  }
+}
+
+@font-face {
+  font-family: "Plus Jakarta Sans:SemiBold";
+  font-style: normal;
+  font-weight: 600;
+  src: url("https://static.figma.com/font/PlusJakartaSans_wght__2") format("woff2");
+}
+
+@font-face {
+  font-family: "Plus Jakarta Sans:Medium";
+  font-style: normal;
+  font-weight: 500;
+  src: url("https://static.figma.com/font/PlusJakartaSans_wght__2") format("woff2");
+}
+
+@font-face {
+  font-family: "Inter:Bold";
+  font-style: normal;
+  font-weight: 700;
+  src: url("https://static.figma.com/font/Inter_1") format("woff2");
+}
+
+@font-face {
+  font-family: "Inter:Regular";
+  font-style: normal;
+  font-weight: 400;
+  src: url("https://static.figma.com/font/Inter_1") format("woff2");
+}
+
+@font-face {
+  font-family: "Inter:Black";
+  font-style: normal;
+  font-weight: 900;
+  src: url("https://static.figma.com/font/Inter_1") format("woff2");
+}
+
+@font-face {
+  font-family: "Plus Jakarta Sans:Bold";
+  font-style: normal;
+  font-weight: 700;
+  src: url("https://static.figma.com/font/PlusJakartaSans_wght__2") format("woff2");
+}
+
+@font-face {
+  font-family: "Inter:Semi Bold";
+  font-style: normal;
+  font-weight: 600;
+  src: url("https://static.figma.com/font/Inter_1") format("woff2");
+}
+
+@font-face {
+  font-family: "Inter:Extra Bold";
+  font-style: normal;
+  font-weight: 800;
+  src: url("https://static.figma.com/font/Inter_1") format("woff2");
+}
+
+@font-face {
+  font-family: "Plus Jakarta Sans:Regular";
+  font-style: normal;
+  font-weight: 400;
+  src: url("https://static.figma.com/font/PlusJakartaSans_wght__2") format("woff2");
+}
