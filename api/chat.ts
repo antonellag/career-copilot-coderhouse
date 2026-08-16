@@ -1,6 +1,12 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { getSystemPrompt, type ChatMode } from "./_lib/prompts";
+// Explicit ".js" extension required here (not ".ts") — Vercel's Node.js
+// function builder ships this as native ESM and Node's ESM resolver, unlike
+// Vite's bundler resolution used everywhere else in this repo, does not do
+// extensionless relative-import resolution. Without it this throws
+// ERR_MODULE_NOT_FOUND in production while still working under `vercel dev`
+// locally (confirmed live via `vercel logs` after a real prod deploy).
+import { getSystemPrompt, type ChatMode } from "./_lib/prompts.js";
 
 /**
  * Shared conversational engine for both AI surfaces (the footer sales widget
