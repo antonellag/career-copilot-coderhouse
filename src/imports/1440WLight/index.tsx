@@ -1,4 +1,5 @@
 import { Community as CommunitySection } from "@/components/Community";
+import { AprendeEnVivo } from "@/components/AprendeEnVivo";
 import svgPaths from "./svg-o2ifueab26";
 import imgE27G0YVtfXjurvzREccsbwX5QPng from "./379a08b7e64903b76013437abddb707c65c7cdaf.png";
 import imgImage from "./f869d0ea4f1d8b7745d361f405810ebcface07fd.png";
@@ -12405,9 +12406,11 @@ function Frame101() {
 }
 
 function Slogan() {
+  // Replaced with the real (working) reimplementation — see
+  // src/components/AprendeEnVivo.tsx for why.
   return (
-    <div className="absolute content-stretch flex flex-col items-center left-0 pb-[40px] pt-[120px] px-[80px] right-0 top-[8289.41px]" data-name="Slogan">
-      <Frame101 />
+    <div className="absolute left-0 right-0 px-8 top-[8240px] sm:px-20" data-name="Slogan">
+      <AprendeEnVivo />
     </div>
   );
 }

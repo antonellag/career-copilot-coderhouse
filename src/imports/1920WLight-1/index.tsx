@@ -1,4 +1,5 @@
 import { Community as CommunitySection } from "@/components/Community";
+import { AprendeEnVivo } from "@/components/AprendeEnVivo";
 import svgPaths from "./svg-3ki7dkf8ns";
 import imgE27G0YVtfXjurvzREccsbwX5QPng from "./379a08b7e64903b76013437abddb707c65c7cdaf.png";
 import imgImage from "./0cffd03308de90d97d0cff95d4a9c2c5e8560be1.png";
@@ -12689,9 +12690,13 @@ function Frame103() {
 }
 
 function Slogan() {
+  // Replaced with the real (working) reimplementation — see
+  // src/components/AprendeEnVivo.tsx for why. Wrapper div/position kept
+  // (top offset tuned in Home.tsx-adjacent verification, not left at the
+  // export's original value — see commit message).
   return (
-    <div className="absolute content-stretch flex flex-col items-center left-0 pb-[40px] pt-[120px] px-[80px] right-0 top-[8749.41px]" data-name="Slogan">
-      <Frame103 />
+    <div className="absolute left-0 right-0 px-8 top-[8400px] sm:px-20" data-name="Slogan">
+      <AprendeEnVivo />
     </div>
   );
 }

@@ -201,7 +201,7 @@ function GraduatesPill() {
 
 export function Community() {
   return (
-    <section className="bg-cream px-6 py-20 sm:px-12 sm:py-32">
+    <section className="bg-cream px-6 pb-8 pt-20 sm:px-12 sm:pb-12 sm:pt-32">
       <style>{`
         @keyframes community-scroll {
           from { transform: translateY(0); }
