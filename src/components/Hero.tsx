@@ -99,10 +99,22 @@ export function Hero() {
           clases que te apasionan, en vivo con expertos de la industria.
         </motion.p>
 
-        <motion.div variants={fadeUp} transition={{ duration: 0.6, ease: "easeOut" }}>
+        <motion.div variants={fadeUp} transition={{ duration: 0.6, ease: "easeOut" }} className="relative">
+          {/* Moving glow ring: a rotating conic gradient peeking out ~1.5px around the
+              pill, behind the button's own translucent fill. */}
+          <motion.div
+            aria-hidden="true"
+            className="pointer-events-none absolute -inset-[1.5px] rounded-pill"
+            style={{
+              background:
+                "conic-gradient(from 0deg, transparent 0%, #ff5c2d 18%, transparent 36%)",
+            }}
+            animate={{ rotate: 360 }}
+            transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+          />
           <Link
             to="/limbo"
-            className="group inline-flex items-center gap-2.5 rounded-pill bg-brand-hover px-8 py-4 font-['Plus_Jakarta_Sans:Medium',sans-serif] text-sm text-white shadow-[0_1px_1px_rgba(0,0,0,0.05)] transition-transform hover:scale-[1.03]"
+            className="group relative inline-flex items-center gap-2.5 rounded-pill border border-white/40 bg-white/20 px-8 py-4 font-['Plus_Jakarta_Sans:Medium',sans-serif] text-sm text-brand-hover backdrop-blur-md transition-transform hover:scale-[1.03] hover:bg-white/30"
           >
             Probá Career Copilot
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
