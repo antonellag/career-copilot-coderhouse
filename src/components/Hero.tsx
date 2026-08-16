@@ -99,7 +99,7 @@ export function Hero() {
         initial="hidden"
         animate="show"
         transition={{ staggerChildren: 0.12, delayChildren: 0.2 }}
-        className="absolute inset-0 flex flex-col items-start justify-start gap-5 px-6 pt-28 text-left sm:max-w-xl sm:justify-center sm:px-16 sm:pt-0"
+        className="absolute inset-0 flex flex-col items-start justify-start gap-5 px-6 pt-28 text-left sm:max-w-xl sm:justify-center sm:px-16 sm:pt-0 min-[1920px]:px-32!"
       >
         {/* No card behind the copy anymore — it hid too much of the illustration.
             Legibility instead comes from the left/edge gradients above plus a
