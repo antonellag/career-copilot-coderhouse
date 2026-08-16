@@ -1,3 +1,4 @@
+import { Community as CommunitySection } from "@/components/Community";
 import svgPaths from "./svg-3ki7dkf8ns";
 import imgE27G0YVtfXjurvzREccsbwX5QPng from "./379a08b7e64903b76013437abddb707c65c7cdaf.png";
 import imgImage from "./0cffd03308de90d97d0cff95d4a9c2c5e8560be1.png";
@@ -12558,10 +12559,13 @@ function DivFramer1Xftxjh() {
 }
 
 function Community() {
+  // Replaced with the real (working) reimplementation — see
+  // src/components/Community.tsx for why: this export is a static frame of
+  // a Framer scroll animation, not an actual carousel. Wrapper div/position
+  // kept identical so every section below it stays at its original offset.
   return (
-    <div className="absolute bg-[#f9f3e9] content-stretch flex flex-col gap-[80.01px] items-center justify-center left-0 pb-[80px] pt-[120px] px-[48px] right-0 top-[7063.81px]" data-name="Community 4.0">
-      <Texto1 />
-      <DivFramer1Xftxjh />
+    <div className="absolute left-0 right-0 top-[7063.81px]" data-name="Community 4.0">
+      <CommunitySection />
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { Community as CommunitySection } from "@/components/Community";
 import svgPaths from "./svg-ontbm54s01";
 import imgImage from "./e365e9b96876777cf0edd25fb411f239e13453a1.png";
 import imgClvlzTEbmg4QVPgheu8GJShTgz4Png from "./725be5cd311b9a0e2a54f8217aef20252853199e.png";
@@ -10000,10 +10001,12 @@ function DivFramer1Xftxjh() {
 }
 
 function Community() {
+  // Replaced with the real (working) reimplementation — see
+  // src/components/Community.tsx for why. Wrapper div/position kept
+  // identical so every section below it stays at its original offset.
   return (
-    <div className="absolute bg-[#f9f3e9] content-stretch flex flex-col gap-[24px] items-center justify-center left-0 pb-[40px] pt-[39px] px-[16px] right-0 top-[5254.66px]" data-name="Community 4.0">
-      <TextoTextosLaComunidadOnlineYEnVivoMasGrandeDeLatinoamerica />
-      <DivFramer1Xftxjh />
+    <div className="absolute left-0 right-0 top-[5254.66px]" data-name="Community 4.0">
+      <CommunitySection />
     </div>
   );
 }
