@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { ArrowLeft, Send, Settings2, Sparkles, Wand2 } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Mic, Plus, Send, Settings2, Wand2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { CoderhouseLogo } from "@/components/CoderhouseLogo";
@@ -19,12 +19,16 @@ import { useChat } from "@/lib/ai/useChat";
  * landing-arquitectura-ia.md) — it never appears in user-facing copy here.
  */
 
+// The real site's full category list (src/imports/1920WLight-1's Categories
+// section) — same 6 categories/images/order used there, not invented for
+// this screen.
 const CATEGORIES = [
   { label: "Programación y desarrollo", image: "/limbo/categoria-programacion.png" },
   { label: "Marketing digital", image: "/limbo/categoria-marketing.png" },
   { label: "Inteligencia Artificial", image: "/limbo/categoria-ia.png", badge: "NUEVO" },
   { label: "Diseño UX/UI", image: "/limbo/categoria-uxui.png" },
   { label: "Data", image: "/limbo/categoria-data.png" },
+  { label: "Negocios", image: "/limbo/categoria-negocios.png" },
 ];
 
 export default function Limbo() {
@@ -75,14 +79,14 @@ export default function Limbo() {
   return (
     <LimboShell>
       {messages.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
+        <div className="flex w-full min-w-0 flex-1 flex-col items-center justify-center px-6 text-center">
           <motion.h1
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="font-['Inter:Regular',sans-serif] text-[32px] leading-tight text-ink sm:text-[44px]"
+            className="font-['Inter:Regular',sans-serif] text-[26px] leading-tight text-ink sm:text-[44px]"
           >
-            Hablemos sobre
+            ¡Hola! Hablemos sobre
             <br />
             tu vocación y futuro
           </motion.h1>
@@ -90,41 +94,19 @@ export default function Limbo() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="mt-3 font-['Inter:Regular',sans-serif] text-sm text-ink-muted sm:text-base"
+            className="mt-3 max-w-lg font-['Inter:Regular',sans-serif] text-sm text-ink-muted sm:text-base"
           >
-            Te ayudamos a gestionar tu plan estudiantil para convertirte en profesional
+            Contanos sobre vos, tu experiencia laboral, habilidades y qué te gusta, podés incluso
+            adjuntar tu CV
           </motion.p>
 
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="mt-10 flex flex-wrap justify-center gap-4"
+            className="mt-10 w-full min-w-0"
           >
-            {CATEGORIES.map((c) => (
-              <button
-                key={c.label}
-                type="button"
-                onClick={() => handleCategoryClick(c.label)}
-                className="w-[150px] rounded-2xl border border-border-soft bg-white p-2.5 text-left shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-transform hover:scale-[1.03]"
-              >
-                <div className="mb-2 flex items-center justify-between gap-1">
-                  <span className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-xs leading-tight text-ink">
-                    {c.label}
-                  </span>
-                  {c.badge && (
-                    <span className="shrink-0 rounded-pill bg-brand-hover px-1.5 py-0.5 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-[9px] text-white">
-                      {c.badge}
-                    </span>
-                  )}
-                </div>
-                <img
-                  src={c.image}
-                  alt=""
-                  className="h-20 w-full rounded-xl object-cover"
-                />
-              </button>
-            ))}
+            <CategoryCarousel onSelect={handleCategoryClick} />
           </motion.div>
         </div>
       ) : (
@@ -165,6 +147,22 @@ export default function Limbo() {
             disabled={isLoading}
             className="flex-1 bg-transparent px-1 py-2 font-['Inter:Regular',sans-serif] text-sm text-ink outline-none placeholder:text-ink-muted"
           />
+          {/* Attach + voice input — visual affordances for now, not wired up
+              (file upload/speech-to-text is beyond this session's scope). */}
+          <button
+            type="button"
+            aria-label="Adjuntar documento"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-ink/5 hover:text-ink"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            aria-label="Hablar por audio"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-ink/5 hover:text-ink"
+          >
+            <Mic className="h-4 w-4" />
+          </button>
           <button
             type="submit"
             disabled={isLoading || !input.trim()}
@@ -179,15 +177,77 @@ export default function Limbo() {
   );
 }
 
+function CategoryCarousel({ onSelect }: { onSelect: (label: string) => void }) {
+  const trackRef = useRef<HTMLDivElement>(null);
+
+  const scrollByCards = (dir: 1 | -1) => {
+    trackRef.current?.scrollBy({ left: dir * 260, behavior: "smooth" });
+  };
+
+  return (
+    <div className="relative mx-auto max-w-3xl">
+      <div
+        ref={trackRef}
+        className="scrollbar-none flex gap-4 overflow-x-auto scroll-smooth px-1 py-1"
+        style={{ scrollSnapType: "x proximity" }}
+      >
+        {CATEGORIES.map((c) => (
+          <button
+            key={c.label}
+            type="button"
+            onClick={() => onSelect(c.label)}
+            style={{ scrollSnapAlign: "start" }}
+            className="w-[150px] shrink-0 rounded-2xl border border-border-soft bg-white p-2.5 text-left shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-transform hover:scale-[1.03]"
+          >
+            <div className="mb-2 flex items-center justify-between gap-1">
+              <span className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-xs leading-tight text-ink">
+                {c.label}
+              </span>
+              {c.badge && (
+                <span className="shrink-0 rounded-pill bg-brand-hover px-1.5 py-0.5 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-[9px] text-white">
+                  {c.badge}
+                </span>
+              )}
+            </div>
+            <img src={c.image} alt="" className="h-20 w-full rounded-xl object-cover" />
+          </button>
+        ))}
+      </div>
+
+      {/* Edge chevrons — peek over the first/last card to hint there's more
+          to scroll to, same idea as the real site's Categories carousel. */}
+      <button
+        type="button"
+        onClick={() => scrollByCards(-1)}
+        aria-label="Ver categorías anteriores"
+        className="absolute -left-4 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-border-soft bg-white text-ink shadow-[0_2px_10px_rgba(0,0,0,0.08)] sm:flex"
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        onClick={() => scrollByCards(1)}
+        aria-label="Ver más categorías"
+        className="absolute -right-4 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-border-soft bg-white text-ink shadow-[0_2px_10px_rgba(0,0,0,0.08)] sm:flex"
+      >
+        <ChevronRight className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
 function LimboShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="bg-grid flex h-screen">
-      <div className="hidden p-4 lg:block">
+    <div className="bg-grid relative h-screen">
+      {/* Floating overlay, not a flex sibling — this way the main column
+          below centers against the full viewport width instead of just the
+          leftover space next to it (which read as "shifted right"). */}
+      <div className="absolute left-4 top-4 hidden lg:block">
         <LimboSidebar />
       </div>
 
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex shrink-0 items-center justify-between gap-3 px-5 py-4 sm:px-8">
+      <div className="grid h-full grid-rows-[auto_1fr_auto] overflow-hidden">
+        <header className="flex items-center justify-between gap-3 px-5 py-4 sm:px-8">
           <Link
             to="/"
             className="flex items-center gap-2 text-ink-muted transition-colors hover:text-ink lg:hidden"
@@ -195,11 +255,10 @@ function LimboShell({ children }: { children: React.ReactNode }) {
             <ArrowLeft className="h-4 w-4" />
             <CoderhouseLogo className="h-4 w-auto" />
           </Link>
-          <span className="hidden items-center gap-1.5 rounded-pill bg-white px-3 py-1.5 font-['Inter:Regular',sans-serif] text-xs text-ink-muted shadow-[0_1px_4px_rgba(0,0,0,0.06)] lg:flex">
-            <Sparkles className="h-3.5 w-3.5 text-brand-hover" />
-            Career Copilot
-          </span>
-
+          {/* No 'Career Copilot' badge here at lg — the floating sidebar
+              (branding + logo) already covers that, and this header spans
+              the FULL viewport width now (sidebar is an overlay, not a flex
+              sibling) so nothing should sit under where the sidebar floats. */}
           <div className="ml-auto flex items-center gap-3">
             <Link
               to="/"

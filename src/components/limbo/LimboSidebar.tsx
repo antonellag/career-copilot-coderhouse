@@ -3,22 +3,24 @@ import { CoderhouseLogo } from "@/components/CoderhouseLogo";
 
 /**
  * Floating step sidebar for /limbo, per this session's reference screenshot.
- * "Experiencia" / "Habilidades" / "Resultado" are shown as steps in the
- * broader flow but aren't built yet (that's the roadmap/Job Ready
- * Score/intranet work explicitly out of scope for this session) — only
- * "Test" (the discovery conversation) is interactive here.
+ * These are sequential steps, not buttons — nothing here is clickable.
+ * "Experiencia" starts as the active/current step (per explicit request);
+ * "Habilidades" / "Test" (the discovery conversation) / "Resultado" are the
+ * rest of the flow but aren't wired to advance the step indicator yet
+ * (that's the roadmap/Job Ready Score/intranet work explicitly out of scope
+ * for this session).
  */
 const STEPS = [
-  { label: "Experiencia", icon: Folder },
+  { label: "Experiencia", icon: Folder, active: true },
   { label: "Habilidades", icon: LayoutGrid },
-  { label: "Test", icon: Sparkles, active: true },
+  { label: "Test", icon: Sparkles },
   { label: "Resultado", icon: CheckCircle2 },
 ];
 
 export function LimboSidebar() {
   return (
     <aside className="hidden w-60 shrink-0 rounded-2xl border border-border-soft bg-white p-5 shadow-[0_2px_16px_rgba(0,0,0,0.05)] lg:block">
-      <CoderhouseLogo className="mb-8 h-6 w-auto text-ink" />
+      <CoderhouseLogo className="mb-8 h-9 w-auto text-ink" />
       <nav className="flex flex-col gap-1">
         {STEPS.map(({ label, icon: Icon, active }) => (
           <div

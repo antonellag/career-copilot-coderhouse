@@ -41,6 +41,16 @@
   --radius-pill: 9999px;
 }
 
+/* Hides the scrollbar on the /limbo category carousel (still scrollable via
+   drag/touch/the chevron buttons — this only hides the browser chrome). */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
 /* Light graph-paper grid background — used only on /limbo (see
    src/pages/Limbo.tsx), per that page's own lighter/friendlier tone
    (landing-arquitectura-ia.md) instead of the site's cream surfaces. */
