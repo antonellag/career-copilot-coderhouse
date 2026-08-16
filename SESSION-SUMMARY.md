@@ -20,6 +20,25 @@ Si el modelo vuelve a fallar en el futuro (Google deprecia modelos seguido), el 
 siempre aparece en `npx vercel logs <url-del-deploy>` — no confiar en el mensaje genérico
 "The AI model call failed" que devuelve la API, siempre mirar los logs del lado del servidor.
 
+## ✅ Adjuntar CV en /limbo (verificado en producción real)
+
+- Botón de audio/micrófono: **sacado del todo** de la caja de chat (era decorativo, no hacía
+  nada — se sacó en vez de dejarlo deshabilitado).
+- Botón `+` de adjuntar CV: conectado de verdad. Solo PDF, tope de 8MB, extrae el texto **del
+  lado del cliente** con `pdfjs-dist` (no se manda el PDF entero al servidor — ver la decisión
+  técnica abajo). Estados: cargando (spinner) → listo (chip con nombre del archivo + botón para
+  sacarlo) → error (mensaje claro si no es PDF, pesa de más, o es un PDF escaneado sin texto).
+- El texto extraído viaja como contexto oculto en el primer mensaje que arranca la conversación
+  (no se ve en la burbuja del chat, pero sí le llega al modelo). Probado en producción real con
+  un CV de prueba: el modelo saludó por nombre, citó datos concretos del CV (años de experiencia,
+  empresa, herramientas) y dijo explícitamente "en tu CV mencionás que...", en vez de volver a
+  preguntar algo que el CV ya contestaba.
+- **Decisión técnica**: se confirmó que el proyecto en Vercel es plan Hobby, con el límite de
+  4.5MB de body en funciones serverless (no es específico de Hobby, aplica a todos los planes).
+  Un PDF en base64 (+33% de peso) más el historial de la conversación deja muy poco margen para
+  un CV real de varios MB — por eso se extrae el texto en el navegador en vez de mandar el PDF
+  nativo a Gemini.
+
 
 Deadline del hackathon: **23/8**. Este documento resume todo lo construido en esta sesión de
 Claude Code, para retomar el trabajo en otra conversación sin perder contexto.
