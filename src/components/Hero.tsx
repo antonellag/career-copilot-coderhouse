@@ -44,7 +44,7 @@ export function Hero() {
         src={BACK_LAYER_SRC}
         alt=""
         aria-hidden="true"
-        className="absolute inset-0 h-full w-full object-cover"
+        className="absolute inset-0 h-full w-full object-cover object-[center_20%]"
         animate={{ x: ["0%", "-3%", "0%"], scale: [1, 1.05, 1] }}
         transition={{ duration: 30, repeat: Infinity, ease: "easeInOut" }}
       />
@@ -53,7 +53,7 @@ export function Hero() {
       <motion.img
         src={FRONT_LAYER_SRC}
         alt="Una persona en su propio espacio, con su notebook, rodeada de nubes"
-        className="absolute inset-0 h-full w-full object-cover object-bottom"
+        className="absolute inset-0 h-full w-full object-cover object-top"
         animate={{ y: [0, -12, 0] }}
         transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
       />
@@ -85,7 +85,7 @@ export function Hero() {
         <motion.h1
           variants={fadeUp}
           transition={{ duration: 0.6, ease: "easeOut" }}
-          className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-[32px] leading-[1.15] tracking-[-0.02em] text-white sm:text-[44px]"
+          className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-[32px] uppercase leading-[1.15] tracking-[-0.02em] text-white sm:text-[44px]"
         >
           ¿Sabés qué te apasiona?
         </motion.h1>
@@ -99,27 +99,10 @@ export function Hero() {
           clases que te apasionan, en vivo con expertos de la industria.
         </motion.p>
 
-        <motion.div variants={fadeUp} transition={{ duration: 0.6, ease: "easeOut" }} className="relative">
-          {/* Moving glow ring: a wide-pill box, not a square, so a rotating conic
-              gradient can't just sit *in* it — rotating the box itself swept its
-              corners past the rounded edge and read as a spinning rectangle. Fix:
-              clip a much bigger rotating gradient to the pill shape (overflow-hidden
-              here), so only a thin ring of moving light shows around the button's
-              1.5px edge instead of the whole shape spinning. */}
-          <div aria-hidden="true" className="pointer-events-none absolute -inset-[1.5px] overflow-hidden rounded-pill">
-            <motion.div
-              className="absolute inset-[-60%]"
-              style={{
-                background:
-                  "conic-gradient(from 0deg, transparent 0%, #ff5c2d 12%, transparent 28%)",
-              }}
-              animate={{ rotate: 360 }}
-              transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-            />
-          </div>
+        <motion.div variants={fadeUp} transition={{ duration: 0.6, ease: "easeOut" }}>
           <Link
             to="/limbo"
-            className="group relative inline-flex items-center gap-2.5 rounded-pill border border-white/40 bg-white/20 px-8 py-4 font-['Plus_Jakarta_Sans:Medium',sans-serif] text-sm text-brand-hover backdrop-blur-md transition-transform hover:scale-[1.03] hover:bg-white/30"
+            className="group inline-flex items-center gap-2.5 rounded-pill border border-white/40 bg-white/20 px-8 py-4 font-['Plus_Jakarta_Sans:Medium',sans-serif] text-sm text-brand-hover backdrop-blur-md transition-transform hover:scale-[1.03] hover:bg-white/30"
           >
             Probá Career Copilot
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />

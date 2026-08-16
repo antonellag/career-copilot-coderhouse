@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { MessageCircle, Send, X } from "lucide-react";
+import { Keyboard, Send, Wand2, X } from "lucide-react";
 import { useState } from "react";
 import { useChat } from "@/lib/ai/useChat";
 
@@ -98,21 +98,35 @@ export function SalesWidget() {
       </AnimatePresence>
 
       {!open && (
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="flex items-center gap-2 rounded-pill border border-border-soft bg-cream-soft/95 py-1.5 pl-1.5 pr-2 shadow-[0_4px_16px_rgba(0,0,0,0.10)] backdrop-blur-sm transition-transform hover:scale-[1.02]"
-        >
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink/5 text-ink">
-            <MessageCircle className="h-3.5 w-3.5" strokeWidth={2} />
-          </span>
-          <span className="hidden font-['Inter:Regular',sans-serif] text-xs text-ink-muted sm:inline">
-            Hablá con el asistente de Coderhouse
-          </span>
-          <span className="rounded-pill bg-ink/5 px-3 py-1 font-['Plus_Jakarta_Sans:Medium',sans-serif] text-xs text-ink">
+        <div className="flex items-center gap-3 rounded-pill border border-white/40 bg-white/30 py-1.5 pl-1.5 pr-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.18)] backdrop-blur-lg">
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="flex items-center gap-2.5 rounded-pill py-1 pl-1 pr-3 text-left transition-opacity hover:opacity-80"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-hover text-white">
+              <Wand2 className="h-4 w-4" strokeWidth={2} />
+            </span>
+            <span className="hidden font-['Inter:Regular',sans-serif] text-sm text-ink sm:inline">
+              Hablá con el Experto IA de Coderhouse
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            aria-label="Abrir chat"
+            className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ink text-white sm:flex"
+          >
+            <Keyboard className="h-4 w-4" strokeWidth={2} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="shrink-0 rounded-pill bg-brand-hover px-5 py-2.5 font-['Plus_Jakarta_Sans:Medium',sans-serif] text-sm text-white transition-transform hover:scale-[1.03]"
+          >
             Hablar
-          </span>
-        </button>
+          </button>
+        </div>
       )}
     </div>
   );
