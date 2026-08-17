@@ -11,7 +11,16 @@ export default defineConfig(({ mode }) => {
   const emitSourcemaps = mode === 'development'
 
   return {
-    base: process.env.FIGMA_PUBLIC_URL ? `${process.env.FIGMA_PUBLIC_URL}/` : '/',
+    // Was `process.env.FIGMA_PUBLIC_URL ? \`${FIGMA_PUBLIC_URL}/\` : '/'` — a
+    // leftover from the Figma Make deploy pipeline (figma make deploy), which
+    // this project no longer uses (it deploys to Vercel now, see vercel.json).
+    // That conditional made EVERY asset path (images, JS, the pdf.js worker)
+    // resolve against an external tunnel URL whenever FIGMA_PUBLIC_URL was
+    // set in the shell running the dev server — e.g. Figma Desktop's own
+    // live-preview tooling sets it, so opening the same local dev server in
+    // a plain browser (not through Figma's proxy) 404'd on every asset at
+    // once. Hardcoded to '/' since Vercel always serves from the domain root.
+    base: '/',
     build: {
       sourcemap: emitSourcemaps ? 'inline' : false,
       minify: !emitSourcemaps,
