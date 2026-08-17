@@ -34,8 +34,15 @@ type ChatMessage = {
 // recommendation for new keys as of this session.
 const MODEL_NAME = "gemini-3.5-flash";
 
+const CHAT_MODES: ChatMode[] = [
+  "sales",
+  "discovery-experiencia",
+  "discovery-habilidades",
+  "discovery-resultado",
+];
+
 function isChatMode(value: unknown): value is ChatMode {
-  return value === "sales" || value === "discovery";
+  return CHAT_MODES.includes(value as ChatMode);
 }
 
 function isChatMessage(value: unknown): value is ChatMessage {

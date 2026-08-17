@@ -5,7 +5,7 @@
  * /limbo discovery agent both call this same function with a different mode.
  */
 
-export type ChatMode = "sales" | "discovery";
+export type ChatMode = "sales" | "discovery-experiencia" | "discovery-habilidades" | "discovery-resultado";
 
 export type ChatMessage = {
   role: "user" | "assistant";
