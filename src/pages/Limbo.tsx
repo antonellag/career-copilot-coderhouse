@@ -1,28 +1,37 @@
 import { motion } from "framer-motion";
 import { AlertCircle, ArrowLeft, ChevronLeft, ChevronRight, FileText, Loader2, Plus, Send, Settings2, Wand2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { CoderhouseLogo } from "@/components/CoderhouseLogo";
-import { LimboSidebar } from "@/components/limbo/LimboSidebar";
+import { LimboSidebar, type LimboPhase } from "@/components/limbo/LimboSidebar";
+import { RiasecTest } from "@/components/limbo/RiasecTest";
 import { extractCareerProfile } from "@/lib/ai/careerProfile";
+import { extractPhaseComplete } from "@/lib/ai/phaseComplete";
 import { useChat } from "@/lib/ai/useChat";
+import type { ChatMode } from "@/lib/ai/client";
 import { extractPdfText } from "@/lib/pdf/extractPdfText";
+import { RIASEC_LABELS, type RiasecDimension } from "@/lib/riasec/questions";
 
 /**
- * /limbo — the discovery agent (mode: "discovery", see api/_lib/prompts.ts).
- * Independent space, reached only from the hero CTA (never linked in the
- * site navbar). Lighter/friendlier than the rest of the site: white/grid
- * background, a floating step sidebar, and a conversational start screen —
- * per this session's reference screenshot, closer to a creation tool
- * (Notion AI mood) than the institutional Coderhouse look.
+ * /limbo — the discovery agent. Independent space, reached only from the
+ * hero CTA (never linked in the site navbar). Restructured into 4 sequential
+ * phases per prompt-claude-code-fases-limbo.md:
+ *
+ *   Experiencia (chat) -> Habilidades (chat) -> Test (RIASEC cards) -> Resultado (Career Profile)
+ *
+ * Experiencia and Habilidades share ONE useChat instance/message thread —
+ * only `mode` changes between them (see the `chatMode` derivation below), so
+ * the model always has the full prior conversation in context without any
+ * manual context-passing. Test is pure client-side scoring (api/chat.ts is
+ * never called for it). Resultado re-enters the same chat with the RIASEC
+ * code injected as hidden context, same pattern as the CV.
  *
  * "Limbo" is this session's internal codename only (see
  * landing-arquitectura-ia.md) — it never appears in user-facing copy here.
  */
 
 // The real site's full category list (src/imports/1920WLight-1's Categories
-// section) — same 6 categories/images/order used there, not invented for
-// this screen.
+// section) — same 6 categories/images/order used there, not invented.
 const CATEGORIES = [
   { label: "Programación y desarrollo", image: "/limbo/categoria-programacion.png" },
   { label: "Marketing digital", image: "/limbo/categoria-marketing.png" },
@@ -46,27 +55,50 @@ const CV_ERROR_MESSAGES: Record<string, string> = {
   "parse-failed": "Hubo un problema al leer el PDF. Sin problema, seguimos por acá.",
 };
 
+const PHASE_TO_MODE: Record<Exclude<LimboPhase, "test">, ChatMode> = {
+  experiencia: "discovery-experiencia",
+  habilidades: "discovery-habilidades",
+  resultado: "discovery-resultado",
+};
+
 export default function Limbo() {
-  const { messages, send, isLoading, error } = useChat("discovery");
+  const navigate = useNavigate();
+  const [phase, setPhase] = useState<LimboPhase>("experiencia");
+  const [riasecCode, setRiasecCode] = useState<RiasecDimension[]>([]);
   const [input, setInput] = useState("");
   const [cv, setCv] = useState<CvState>({ status: "idle" });
+
+  const chatMode = PHASE_TO_MODE[phase === "test" ? "experiencia" : phase];
+  const { messages, send, isLoading, error } = useChat(chatMode);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const started = useRef(false);
+  const resultadoTriggered = useRef(false);
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = ""; // lets the person re-pick the same file later if they remove it
-    if (!file) return;
+  // Advance experiencia -> habilidades -> test whenever the model's latest
+  // reply is marked PHASE_COMPLETE (see api/_lib/prompts.ts).
+  useEffect(() => {
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== "assistant") return;
+    const { complete } = extractPhaseComplete(last.content);
+    if (!complete) return;
+    if (phase === "experiencia") setPhase("habilidades");
+    else if (phase === "habilidades") setPhase("test");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages]);
 
-    setCv({ status: "loading", fileName: file.name });
-    const result = await extractPdfText(file);
-    if (result.ok) {
-      setCv({ status: "ready", fileName: file.name, text: result.text });
-    } else {
-      setCv({ status: "error", message: CV_ERROR_MESSAGES[result.reason] });
-    }
-  };
+  // Once Test finishes and we're in "resultado", auto-send the one hidden
+  // turn that asks the model to close with the Career Profile — the person
+  // doesn't have to type anything to trigger this.
+  useEffect(() => {
+    if (phase !== "resultado" || resultadoTriggered.current || riasecCode.length === 0) return;
+    resultadoTriggered.current = true;
+    const dims = riasecCode.map((d) => RIASEC_LABELS[d]).join(", ");
+    const apiContent = `--- Resultado test vocacional (RIASEC) ---\nDimensiones dominantes: ${dims}\n--- fin resultado test ---\n\nYa terminé el test vocacional.`;
+    send("Ya terminé el test vocacional.", apiContent);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, riasecCode]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -79,15 +111,28 @@ export default function Limbo() {
   );
 
   const visibleMessages = messages.map((m) =>
-    m.role === "assistant" ? { ...m, content: extractCareerProfile(m.content).cleanText } : m,
+    m.role === "assistant"
+      ? { ...m, content: extractPhaseComplete(extractCareerProfile(m.content).cleanText).cleanText }
+      : m,
   );
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    setCv({ status: "loading", fileName: file.name });
+    const result = await extractPdfText(file);
+    if (result.ok) {
+      setCv({ status: "ready", fileName: file.name, text: result.text });
+    } else {
+      setCv({ status: "error", message: CV_ERROR_MESSAGES[result.reason] });
+    }
+  };
 
   const startConversation = (openingMessage: string) => {
     if (started.current) return;
     started.current = true;
-    // If a CV finished processing before the first message goes out, its
-    // extracted text rides along as hidden context for the model — the
-    // chat bubble still shows just `openingMessage`, nothing extra.
     const apiContent =
       cv.status === "ready"
         ? `--- CV adjunto (texto extraído) ---\n${cv.text}\n--- fin CV ---\n\n${openingMessage}`
@@ -98,7 +143,8 @@ export default function Limbo() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
-    startConversation(input);
+    if (!started.current) startConversation(input);
+    else send(input);
     setInput("");
   };
 
@@ -106,17 +152,33 @@ export default function Limbo() {
     startConversation(`Me interesa explorar ${label}. Contame vos por dónde empezamos.`);
   };
 
+  if (phase === "test") {
+    return (
+      <LimboShell phase={phase}>
+        <RiasecTest
+          onComplete={(code) => {
+            setRiasecCode(code);
+            setPhase("resultado");
+          }}
+        />
+      </LimboShell>
+    );
+  }
+
   if (profile && profile.paths.length > 0) {
     return (
-      <LimboShell>
-        <CareerProfileResult paths={profile.paths} />
+      <LimboShell phase={phase}>
+        <CareerProfileResult
+          paths={profile.paths}
+          onChoose={() => navigate("/plataforma")}
+        />
       </LimboShell>
     );
   }
 
   return (
-    <LimboShell>
-      {messages.length === 0 ? (
+    <LimboShell phase={phase}>
+      {messages.length === 0 && phase === "experiencia" ? (
         <div className="flex w-full min-w-0 flex-1 flex-col items-center justify-center px-6 text-center">
           <motion.h1
             initial={{ opacity: 0, y: 12 }}
@@ -219,22 +281,26 @@ export default function Limbo() {
               disabled={isLoading}
               className="flex-1 bg-transparent px-1 py-2 font-['Inter:Regular',sans-serif] text-sm text-ink outline-none placeholder:text-ink-muted"
             />
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="application/pdf,.pdf"
-              onChange={handleFileSelect}
-              className="hidden"
-            />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={cv.status === "loading"}
-              aria-label="Adjuntar CV (PDF)"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-ink/5 hover:text-ink disabled:opacity-40"
-            >
-              <Plus className="h-4 w-4" />
-            </button>
+            {!started.current && (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={cv.status === "loading"}
+                  aria-label="Adjuntar CV (PDF)"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-ink/5 hover:text-ink disabled:opacity-40"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </>
+            )}
             <button
               type="submit"
               disabled={isLoading || !input.trim()}
@@ -309,14 +375,14 @@ function CategoryCarousel({ onSelect }: { onSelect: (label: string) => void }) {
   );
 }
 
-function LimboShell({ children }: { children: React.ReactNode }) {
+function LimboShell({ phase, children }: { phase: LimboPhase; children: React.ReactNode }) {
   return (
     <div className="bg-grid relative h-screen">
       {/* Floating overlay, not a flex sibling — this way the main column
           below centers against the full viewport width instead of just the
           leftover space next to it (which read as "shifted right"). */}
       <div className="absolute left-4 top-4 hidden lg:block">
-        <LimboSidebar />
+        <LimboSidebar currentPhase={phase} />
       </div>
 
       <div className="grid h-full grid-rows-[auto_1fr_auto] overflow-hidden">
@@ -328,10 +394,6 @@ function LimboShell({ children }: { children: React.ReactNode }) {
             <ArrowLeft className="h-4 w-4" />
             <CoderhouseLogo className="h-4 w-auto" />
           </Link>
-          {/* No 'Career Copilot' badge here at lg — the floating sidebar
-              (branding + logo) already covers that, and this header spans
-              the FULL viewport width now (sidebar is an overlay, not a flex
-              sibling) so nothing should sit under where the sidebar floats. */}
           <div className="ml-auto flex items-center gap-3">
             <Link
               to="/"
@@ -358,7 +420,26 @@ function LimboShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function CareerProfileResult({ paths }: { paths: { title: string; why: string }[] }) {
+function CareerProfileResult({
+  paths,
+  onChoose,
+}: {
+  paths: { title: string; why: string }[];
+  onChoose: () => void;
+}) {
+  const [chosen, setChosen] = useState<number | null>(null);
+  const [navigating, setNavigating] = useState(false);
+
+  const handleChoose = (i: number) => {
+    if (navigating) return;
+    setChosen(i);
+    setNavigating(true);
+    // Brief, honest loading beat — this is a UI transition, not a real
+    // request, so it stays short (the placeholder route it lands on has no
+    // real data to fetch yet).
+    setTimeout(onChoose, 900);
+  };
+
   return (
     <div className="flex-1 overflow-y-auto px-6 py-8 sm:px-8">
       <div className="mx-auto max-w-2xl">
@@ -374,7 +455,8 @@ function CareerProfileResult({ paths }: { paths: { title: string; why: string }[
             Esto es lo que vimos en tu conversación
           </h1>
           <p className="mb-10 font-['Inter:Regular',sans-serif] text-[15px] text-ink-muted">
-            No es un puntaje — son caminos posibles a partir de lo que nos contaste recién.
+            No es un puntaje — son caminos posibles a partir de lo que nos contaste y del test.
+            Elegí el que más te representa para seguir.
           </p>
         </motion.div>
 
@@ -385,14 +467,33 @@ function CareerProfileResult({ paths }: { paths: { title: string; why: string }[
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 + i * 0.1 }}
-              className="rounded-2xl border border-border-soft bg-white p-6 shadow-[0_2px_10px_rgba(0,0,0,0.05)]"
+              className={`rounded-2xl border p-6 shadow-[0_2px_10px_rgba(0,0,0,0.05)] transition-colors ${
+                chosen === i ? "border-brand-hover bg-brand-hover/5" : "border-border-soft bg-white"
+              }`}
             >
               <h2 className="mb-2 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-lg text-ink">
                 {path.title}
               </h2>
-              <p className="font-['Inter:Regular',sans-serif] text-[15px] leading-relaxed text-ink-muted">
+              <p className="mb-4 font-['Inter:Regular',sans-serif] text-[15px] leading-relaxed text-ink-muted">
                 {path.why}
               </p>
+              <button
+                type="button"
+                onClick={() => handleChoose(i)}
+                disabled={navigating}
+                className={`inline-flex items-center gap-2 rounded-pill px-5 py-2.5 font-['Plus_Jakarta_Sans:Medium',sans-serif] text-sm transition-transform disabled:opacity-60 ${
+                  chosen === i ? "bg-brand-hover text-white" : "bg-ink/5 text-ink hover:scale-[1.02]"
+                }`}
+              >
+                {chosen === i && navigating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Preparando tu plataforma…
+                  </>
+                ) : (
+                  "Elegir este camino"
+                )}
+              </button>
             </motion.div>
           ))}
         </div>
