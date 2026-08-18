@@ -1,6 +1,6 @@
-import { Background, Controls, Position, ReactFlow, type Edge, type Node } from "@xyflow/react";
+import { Background, Controls, Panel, Position, ReactFlow, type Edge, type Node } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { AlertCircle, CheckCircle2, Circle, X, Zap } from "lucide-react";
+import { AlertCircle, BookOpen, Check, CheckCircle2, Circle, Search, X, Zap } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { CatalogoView } from "@/components/plataforma/CatalogoView";
@@ -150,7 +150,23 @@ function MapaBody({
 }) {
   // Recomputed whenever a status changes (getStatus's identity changes with
   // it — see useRoadmapProgress) so completed/in-progress nodes repaint.
-  const { nodes, edges } = useMemo(() => buildFlow(roadmap, getStatus), [roadmap, getStatus]);
+  const { nodes: builtNodes, edges } = useMemo(() => buildFlow(roadmap, getStatus), [roadmap, getStatus]);
+
+  const [query, setQuery] = useState("");
+  // Real filter, not decorative: matches the boceto's floating "Buscar
+  // curso" box. Dims (doesn't remove) non-matching course nodes so the
+  // chain/edges stay legible — the trigger node is exempt, it's not a
+  // course to search for.
+  const nodes = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return builtNodes;
+    return builtNodes.map((n) => {
+      if (n.id === "trigger") return n;
+      const node = roadmap.nodos.find((rn) => rn.id === n.id);
+      const matches = node?.curso.nombre.toLowerCase().includes(q) ?? false;
+      return { ...n, style: { ...n.style, opacity: matches ? 1 : 0.25 } };
+    });
+  }, [builtNodes, query, roadmap.nodos]);
 
   const selectedNode = selectedId ? roadmap.nodos.find((n) => n.id === selectedId) : null;
 
@@ -169,6 +185,17 @@ function MapaBody({
       >
         <Background gap={20} />
         <Controls showInteractive={false} />
+        <Panel position="top-right">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Buscar curso"
+              className="w-48 rounded-pill border border-border-soft bg-white py-2 pl-9 pr-3 font-['Inter:Regular',sans-serif] text-sm text-ink shadow-[0_2px_10px_rgba(0,0,0,0.06)] outline-none placeholder:text-ink-muted"
+            />
+          </div>
+        </Panel>
       </ReactFlow>
 
       {selectedNode && (
@@ -297,15 +324,36 @@ const TRIGGER_NODE_STYLE: React.CSSProperties = {
 function courseNodeStyle(esTransversal: boolean, status: CourseStatus): React.CSSProperties {
   const accent = esTransversal ? "#8b5cf6" : "var(--color-brand-hover, #ff5a36)";
   return {
-    background: status === "completado" ? "rgba(34,197,94,0.06)" : "white",
+    background: "white",
     border: `1.5px solid ${status === "completado" ? "#22c55e" : accent}`,
     borderRadius: 16,
-    padding: "12px 16px",
+    padding: 0,
+    overflow: "hidden",
     fontFamily: "Inter, sans-serif",
     width: 220,
     cursor: "pointer",
     boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
   };
+}
+
+// Boceto shows each course node as a mini version of a real course card —
+// colored header block standing in for a course photo (no real course
+// images exist in data/course-catalog.json, so a category-tinted block
+// with an icon is the honest placeholder) plus a category badge, never an
+// invented price/date since those fields don't exist in the catalog yet.
+const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
+  "Inteligencia Artificial": { bg: "#ede9fe", text: "#6d28d9" },
+  "Programación": { bg: "#dbeafe", text: "#1d4ed8" },
+  "Diseño": { bg: "#fce7f3", text: "#be185d" },
+  Data: { bg: "#d1fae5", text: "#047857" },
+  "Marketing Digital": { bg: "#fef3c7", text: "#b45309" },
+  Negocios: { bg: "#e0e7ff", text: "#4338ca" },
+  Producto: { bg: "#ffe4e6", text: "#be123c" },
+  "Softs Skills": { bg: "#f3f4f6", text: "#374151" },
+};
+
+function categoryColor(categoria: string): { bg: string; text: string } {
+  return CATEGORY_COLORS[categoria] ?? { bg: "#f3f4f6", text: "#374151" };
 }
 
 function buildFlow(roadmap: Roadmap, getStatus: (id: string) => CourseStatus): { nodes: Node[]; edges: Edge[] } {
@@ -335,26 +383,54 @@ function buildFlow(roadmap: Roadmap, getStatus: (id: string) => CourseStatus): {
 
   roadmap.nodos.forEach((node, i) => {
     const status = getStatus(node.id);
+    const catColor = categoryColor(node.curso.categoria);
     nodes.push({
       id: node.id,
       position: { x: 300 + i * courseGapX, y: 140 },
       data: {
         label: (
           <div>
-            <div className="mb-1 flex items-center justify-between gap-2">
-              <span className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-sm text-ink">
-                {node.curso.nombre}
-              </span>
-              <StatusIcon status={status} />
+            {/* Header block — stands in for a course photo; category-tinted
+                since no real course images exist in the catalog data. */}
+            <div
+              className="relative flex h-14 items-center justify-center"
+              style={{ background: catColor.bg }}
+            >
+              <BookOpen className="h-5 w-5" style={{ color: catColor.text }} />
+              {status === "en-progreso" && (
+                <span className="absolute right-2 top-2 rounded-pill bg-brand-hover px-2 py-0.5 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-[10px] text-white">
+                  Ingresar
+                </span>
+              )}
+              {status === "completado" && (
+                <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-green-500 text-white">
+                  <Check className="h-3 w-3" strokeWidth={3} />
+                </span>
+              )}
             </div>
-            <span className="block font-['Inter:Regular',sans-serif] text-[11px] uppercase tracking-wide text-ink-muted">
-              {tipoLabel(node.curso.tipo)} · {node.curso.categoria}
-            </span>
-            {node.esTransversal && (
-              <span className="mt-1.5 inline-block rounded-pill bg-purple-100 px-2 py-0.5 font-['Inter:Regular',sans-serif] text-[10px] text-purple-700">
-                Complementario
+
+            <div className="px-3 py-2.5">
+              <div className="mb-1 flex flex-wrap items-center gap-1">
+                <span
+                  className="rounded-pill px-2 py-0.5 font-['Inter:Regular',sans-serif] text-[10px]"
+                  style={{ background: catColor.bg, color: catColor.text }}
+                >
+                  {node.curso.categoria}
+                </span>
+                {node.esTransversal && (
+                  <span className="rounded-pill bg-purple-100 px-2 py-0.5 font-['Inter:Regular',sans-serif] text-[10px] text-purple-700">
+                    Complementario
+                  </span>
+                )}
+              </div>
+              <p className="mb-0.5 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-sm leading-snug text-ink">
+                {node.curso.nombre}
+              </p>
+              <span className="flex items-center gap-1 font-['Inter:Regular',sans-serif] text-[11px] text-ink-muted">
+                <StatusIcon status={status} />
+                {tipoLabel(node.curso.tipo)} · {statusLabel(status)}
               </span>
-            )}
+            </div>
           </div>
         ),
       },
