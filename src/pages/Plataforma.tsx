@@ -64,6 +64,7 @@ export default function Plataforma() {
   // switching tabs — see PortfolioView's doc comment for why it's fine to
   // lose it on a page refresh.
   const [project, setProject] = useState<PortfolioProject | null>(null);
+  const [behanceProjects, setBehanceProjects] = useState<PortfolioProject[]>([]);
   const [disponible, setDisponible] = useState(false);
   const [contacto, setContacto] = useState("");
 
@@ -123,6 +124,8 @@ export default function Plataforma() {
             getCompletedAt={getCompletedAt}
             project={project}
             setProject={setProject}
+            behanceProjects={behanceProjects}
+            setBehanceProjects={setBehanceProjects}
             disponible={disponible}
             setDisponible={setDisponible}
             contacto={contacto}

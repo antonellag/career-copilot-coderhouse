@@ -29,6 +29,8 @@ export function PerfilView({
   getCompletedAt,
   project,
   setProject,
+  behanceProjects,
+  setBehanceProjects,
   disponible,
   setDisponible,
   contacto,
@@ -39,6 +41,8 @@ export function PerfilView({
   getCompletedAt: (id: string) => string | undefined;
   project: PortfolioProject | null;
   setProject: (p: PortfolioProject | null) => void;
+  behanceProjects: PortfolioProject[];
+  setBehanceProjects: (p: PortfolioProject[]) => void;
   disponible: boolean;
   setDisponible: (v: boolean) => void;
   contacto: string;
@@ -89,6 +93,8 @@ export function PerfilView({
             getStatus={getStatus}
             project={project}
             setProject={setProject}
+            behanceProjects={behanceProjects}
+            setBehanceProjects={setBehanceProjects}
             disponible={disponible}
             setDisponible={setDisponible}
             contacto={contacto}
