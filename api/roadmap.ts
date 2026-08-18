@@ -11,17 +11,18 @@ import { getCourseById, type Course } from "./_lib/courseCatalog.js";
  * (never a free-text course name).
  *
  * Request body: { transcript: string, riasecLabels: string[] }
- * Response body: { base: {label:string}[], nodos: (RoadmapNode & {curso: Course})[] }
+ * Response body: { trigger: {resumen: string}, nodos: RoadmapNode[] }
  */
 
 const MODEL_NAME = "gemini-3.5-flash";
 
-type RawNode = { id: string; orden: number; justificacion: string };
-type RawResponse = { base?: { label: string }[]; nodos?: RawNode[] };
+type RawNode = { id: string; orden: number; esTransversal: boolean; justificacion: string };
+type RawResponse = { trigger?: { resumen: string }; nodos?: RawNode[] };
 
 export type RoadmapNode = {
   id: string;
   orden: number;
+  esTransversal: boolean;
   justificacion: string;
   curso: Course;
 };
@@ -68,7 +69,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const nodos: RoadmapNode[] = (parsed.nodos ?? [])
       .map((n) => {
         const curso = getCourseById(n.id);
-        return curso ? { id: n.id, orden: n.orden, justificacion: n.justificacion, curso } : null;
+        return curso
+          ? { id: n.id, orden: n.orden, esTransversal: Boolean(n.esTransversal), justificacion: n.justificacion, curso }
+          : null;
       })
       .filter((n): n is RoadmapNode => n !== null)
       .sort((a, b) => a.orden - b.orden);
@@ -78,11 +81,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
-    const base = (parsed.base ?? []).filter(
-      (b): b is { label: string } => typeof b?.label === "string" && b.label.trim().length > 0,
-    );
+    const trigger = { resumen: parsed.trigger?.resumen?.trim() || "Perfil armado a partir de tu conversación." };
 
-    res.status(200).json({ base, nodos });
+    res.status(200).json({ trigger, nodos });
   } catch (error) {
     console.error("[api/roadmap] Gemini call failed:", error);
     res.status(502).json({ error: "No pudimos armar tu recorrido. Probá de nuevo." });

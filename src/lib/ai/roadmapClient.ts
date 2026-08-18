@@ -4,25 +4,25 @@
  * chat turn, see api/roadmap.ts.
  */
 
-export type RoadmapBaseItem = { label: string };
+export type RoadmapTrigger = { resumen: string };
 
 export type RoadmapCourse = {
   id: string;
   nombre: string;
   categoria: string;
-  tipo: "curso" | "carrera";
-  descripcion: string;
+  tipo: "curso" | "carrera" | "diplomatura" | "on-demand";
 };
 
 export type RoadmapNode = {
   id: string;
   orden: number;
+  esTransversal: boolean;
   justificacion: string;
   curso: RoadmapCourse;
 };
 
 export type Roadmap = {
-  base: RoadmapBaseItem[];
+  trigger: RoadmapTrigger;
   nodos: RoadmapNode[];
 };
 

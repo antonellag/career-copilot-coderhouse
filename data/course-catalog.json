@@ -1,142 +1,344 @@
 [
   {
-    "id": "intro-ia",
-    "nombre": "Introducción a la IA",
-    "categoria": "Inteligencia Artificial",
-    "tipo": "curso",
-    "descripcion": "Bases de IA generativa y sus aplicaciones prácticas."
-  },
-  {
-    "id": "creacion-productos-ia",
-    "nombre": "Creación de productos con IA",
-    "categoria": "Inteligencia Artificial",
-    "tipo": "curso",
-    "descripcion": "Diseñar y construir productos digitales potenciados por IA."
-  },
-  {
-    "id": "carrera-ai-automation",
-    "nombre": "Carrera de AI Automation",
-    "categoria": "Inteligencia Artificial",
-    "tipo": "carrera",
-    "descripcion": "Automatización de procesos con herramientas de IA."
-  },
-  {
-    "id": "carrera-ai-marketing",
-    "nombre": "Carrera de AI Marketing",
-    "categoria": "Inteligencia Artificial",
-    "tipo": "carrera",
-    "descripcion": "Marketing potenciado por IA de punta a punta."
-  },
-  {
-    "id": "desarrollo-web",
-    "nombre": "Desarrollo Web",
-    "categoria": "Programación y Desarrollo",
-    "tipo": "curso",
-    "descripcion": "Fundamentos de desarrollo web moderno."
-  },
-  {
-    "id": "backend",
-    "nombre": "Backend",
-    "categoria": "Programación y Desarrollo",
-    "tipo": "curso",
-    "descripcion": "Lógica de servidor, APIs y bases de datos."
-  },
-  {
-    "id": "react-native",
-    "nombre": "React Native",
-    "categoria": "Programación y Desarrollo",
-    "tipo": "curso",
-    "descripcion": "Desarrollo de apps móviles multiplataforma."
-  },
-  {
-    "id": "carrera-desarrollo-aplicaciones",
-    "nombre": "Carrera de Desarrollo de Aplicaciones",
-    "categoria": "Programación y Desarrollo",
-    "tipo": "carrera",
-    "descripcion": "Formación completa para desarrollar aplicaciones de punta a punta."
-  },
-  {
-    "id": "carrera-fullstack",
-    "nombre": "Carrera de Desarrollo Full Stack",
-    "categoria": "Programación y Desarrollo",
-    "tipo": "carrera",
-    "descripcion": "Desarrollo frontend y backend integral."
-  },
-  {
-    "id": "carrera-frontend-react",
-    "nombre": "Carrera de Desarrollo Frontend React",
-    "categoria": "Programación y Desarrollo",
-    "tipo": "carrera",
-    "descripcion": "Especialización en interfaces con React."
-  },
-  {
-    "id": "carrera-backend",
-    "nombre": "Carrera de Desarrollo Backend",
-    "categoria": "Programación y Desarrollo",
-    "tipo": "carrera",
-    "descripcion": "Especialización en lógica de servidor y arquitectura."
-  },
-  {
-    "id": "diseno-ux-ui",
-    "nombre": "Diseño UX/UI",
-    "categoria": "Diseño UX/UI",
-    "tipo": "curso",
-    "descripcion": "Diseño de experiencias e interfaces centradas en el usuario."
-  },
-  {
-    "id": "growth-marketing",
-    "nombre": "Growth Marketing",
-    "categoria": "Marketing Digital",
-    "tipo": "curso",
-    "descripcion": "Estrategias de crecimiento basadas en datos y experimentación."
-  },
-  {
-    "id": "seo",
-    "nombre": "SEO",
-    "categoria": "Marketing Digital",
-    "tipo": "curso",
-    "descripcion": "Optimización para motores de búsqueda."
-  },
-  {
-    "id": "publicidad-redes-avanzado",
-    "nombre": "Publicidad en Redes Avanzado",
-    "categoria": "Marketing Digital",
-    "tipo": "curso",
-    "descripcion": "Campañas de pauta avanzada en redes sociales."
-  },
-  {
-    "id": "community-manager",
-    "nombre": "Community Manager",
-    "categoria": "Marketing Digital",
-    "tipo": "carrera",
-    "descripcion": "Gestión integral de comunidades y marca en redes."
-  },
-  {
-    "id": "carrera-marketing-digital",
-    "nombre": "Carrera de Marketing Digital",
-    "categoria": "Marketing Digital",
-    "tipo": "carrera",
-    "descripcion": "Formación integral en marketing digital."
-  },
-  {
-    "id": "carrera-product-marketing",
-    "nombre": "Carrera de Product Marketing",
-    "categoria": "Producto",
-    "tipo": "carrera",
-    "descripcion": "Estrategia de producto orientada a mercado."
-  },
-  {
-    "id": "carrera-producto",
-    "nombre": "Carrera de Producto",
-    "categoria": "Producto",
-    "tipo": "carrera",
-    "descripcion": "Formación integral en gestión de producto digital."
-  },
-  {
     "id": "excel-avanzado",
     "nombre": "Excel Avanzado",
     "categoria": "Data",
-    "tipo": "curso",
-    "descripcion": "Análisis y modelado de datos con Excel."
+    "tipo": "curso"
+  },
+  {
+    "id": "data-engineering",
+    "nombre": "Data Engineering",
+    "categoria": "Data",
+    "tipo": "curso"
+  },
+  {
+    "id": "devops-cloud",
+    "nombre": "DevOps & Cloud",
+    "categoria": "Programación",
+    "tipo": "curso"
+  },
+  {
+    "id": "ai-engineering",
+    "nombre": "AI Engineering",
+    "categoria": "Inteligencia Artificial",
+    "tipo": "curso"
+  },
+  {
+    "id": "curso-de-ai-agents",
+    "nombre": "Curso de AI Agents",
+    "categoria": "Inteligencia Artificial",
+    "tipo": "curso"
+  },
+  {
+    "id": "wordpress",
+    "nombre": "Wordpress",
+    "categoria": "Programación",
+    "tipo": "curso"
+  },
+  {
+    "id": "ai-automation-avanzado",
+    "nombre": "AI Automation Avanzado",
+    "categoria": "Inteligencia Artificial",
+    "tipo": "curso"
+  },
+  {
+    "id": "data-science-ii-machine-learning-para-la-ciencia-de-datos",
+    "nombre": "Data Science II: Machine Learning para la Ciencia de Datos",
+    "categoria": "Data",
+    "tipo": "curso"
+  },
+  {
+    "id": "ux-writing",
+    "nombre": "UX Writing",
+    "categoria": "Diseño",
+    "tipo": "curso"
+  },
+  {
+    "id": "power-bi",
+    "nombre": "Power BI",
+    "categoria": "Data",
+    "tipo": "curso"
+  },
+  {
+    "id": "sql",
+    "nombre": "SQL",
+    "categoria": "Data",
+    "tipo": "curso"
+  },
+  {
+    "id": "contabilidad",
+    "nombre": "Contabilidad",
+    "categoria": "Negocios",
+    "tipo": "curso"
+  },
+  {
+    "id": "management-y-liderazgo",
+    "nombre": "Management y Liderazgo",
+    "categoria": "Negocios",
+    "tipo": "carrera"
+  },
+  {
+    "id": "carrera-de-data-analytics",
+    "nombre": "Carrera de Data Analytics",
+    "categoria": "Data",
+    "tipo": "carrera"
+  },
+  {
+    "id": "carrera-de-ai-automation",
+    "nombre": "Carrera de AI Automation",
+    "categoria": "Inteligencia Artificial",
+    "tipo": "carrera"
+  },
+  {
+    "id": "carrera-de-ai-marketing",
+    "nombre": "Carrera de AI Marketing",
+    "categoria": "Inteligencia Artificial",
+    "tipo": "carrera"
+  },
+  {
+    "id": "carrera-de-producto",
+    "nombre": "Carrera de Producto",
+    "categoria": "Producto",
+    "tipo": "carrera"
+  },
+  {
+    "id": "carrera-de-product-web",
+    "nombre": "Carrera de Product Web",
+    "categoria": "Producto",
+    "tipo": "carrera"
+  },
+  {
+    "id": "carrera-de-product-marketing",
+    "nombre": "Carrera de Product Marketing",
+    "categoria": "Marketing Digital",
+    "tipo": "carrera"
+  },
+  {
+    "id": "carrera-de-product-design",
+    "nombre": "Carrera de Product Design",
+    "categoria": "Producto",
+    "tipo": "carrera"
+  },
+  {
+    "id": "carrera-de-community-manager",
+    "nombre": "Carrera de Community Manager",
+    "categoria": "Marketing Digital",
+    "tipo": "carrera"
+  },
+  {
+    "id": "carrera-de-marketing-digital",
+    "nombre": "Carrera de Marketing Digital",
+    "categoria": "Marketing Digital",
+    "tipo": "carrera"
+  },
+  {
+    "id": "carrera-de-diseno-ux-ui",
+    "nombre": "Carrera de Diseño UX/UI",
+    "categoria": "Diseño",
+    "tipo": "carrera"
+  },
+  {
+    "id": "carrera-de-desarrollo-de-aplicaciones",
+    "nombre": "Carrera de Desarrollo de Aplicaciones",
+    "categoria": "Programación",
+    "tipo": "carrera"
+  },
+  {
+    "id": "diplomatura-full-stack",
+    "nombre": "Diplomatura Full Stack",
+    "categoria": "Programación",
+    "tipo": "diplomatura"
+  },
+  {
+    "id": "diplomatura-en-data-science",
+    "nombre": "Diplomatura en Data Science",
+    "categoria": "Data",
+    "tipo": "diplomatura"
+  },
+  {
+    "id": "diplomatura-diseno-ux-ui",
+    "nombre": "Diplomatura Diseño UX/UI",
+    "categoria": "Diseño",
+    "tipo": "diplomatura"
+  },
+  {
+    "id": "diplomatura-marketing-digital",
+    "nombre": "Diplomatura Marketing Digital",
+    "categoria": "Marketing Digital",
+    "tipo": "diplomatura"
+  },
+  {
+    "id": "data-ia-automatiza-y-potencia-tus-datos",
+    "nombre": "Data + IA: automatiza y potencia tus datos",
+    "categoria": "Data",
+    "tipo": "on-demand"
+  },
+  {
+    "id": "business-analytics-y-data-storytelling",
+    "nombre": "Business Analytics y Data Storytelling",
+    "categoria": "Data",
+    "tipo": "on-demand"
+  },
+  {
+    "id": "sql-y-business-intelligence-del-dato-crudo-al-tablero",
+    "nombre": "SQL y Business Intelligence: del dato crudo al tablero",
+    "categoria": "Data",
+    "tipo": "on-demand"
+  },
+  {
+    "id": "analista-de-datos-con-excel-de-la-celda-a-la-decision",
+    "nombre": "Analista de Datos con Excel: de la celda a la decisión",
+    "categoria": "Data",
+    "tipo": "on-demand"
+  },
+  {
+    "id": "growth-conversion-y-crm-de-extranos-a-clientes-leales",
+    "nombre": "Growth, Conversión y CRM: de extraños a clientes leales",
+    "categoria": "Marketing Digital",
+    "tipo": "on-demand"
+  },
+  {
+    "id": "marca-redes-y-contenido-social-construi-una-presencia-memorable",
+    "nombre": "Marca, Redes y Contenido Social: construí una presencia memorable",
+    "categoria": "Marketing Digital",
+    "tipo": "on-demand"
+  },
+  {
+    "id": "seo-contenido-y-copywriting-escribi-para-posicionar-y-vender",
+    "nombre": "SEO, Contenido y Copywriting: escribí para posicionar y vender",
+    "categoria": "Marketing Digital",
+    "tipo": "on-demand"
+  },
+  {
+    "id": "publicidad-y-performance-campanas-que-venden",
+    "nombre": "Publicidad y Performance: campañas que venden",
+    "categoria": "Marketing Digital",
+    "tipo": "on-demand"
+  },
+  {
+    "id": "ciberseguridad",
+    "nombre": "Ciberseguridad",
+    "categoria": "Programación",
+    "tipo": "on-demand"
+  },
+  {
+    "id": "sitios-web-sin-codigo",
+    "nombre": "Sitios Web sin Código",
+    "categoria": "Programación",
+    "tipo": "on-demand"
+  },
+  {
+    "id": "fundamentos-de-programacion-logica-poo-y-calidad",
+    "nombre": "Fundamentos de Programación: lógica, POO y calidad",
+    "categoria": "Programación",
+    "tipo": "on-demand"
+  },
+  {
+    "id": "cloud-devops-lleva-tu-codigo-a-la-nube",
+    "nombre": "Cloud & DevOps: llevá tu código a la nube",
+    "categoria": "Programación",
+    "tipo": "on-demand"
+  },
+  {
+    "id": "backend-apis-del-primer-endpoint-a-la-ia",
+    "nombre": "Backend & APIs: del primer endpoint a la IA",
+    "categoria": "Programación",
+    "tipo": "on-demand"
+  },
+  {
+    "id": "frontend-moderno-de-html-a-react-en-produccion",
+    "nombre": "Frontend Moderno: de HTML a React en producción",
+    "categoria": "Programación",
+    "tipo": "on-demand"
+  },
+  {
+    "id": "branding-contenido-fotografia-para-redes",
+    "nombre": "Branding, Contenido & Fotografía para Redes",
+    "categoria": "Diseño",
+    "tipo": "on-demand"
+  },
+  {
+    "id": "ux-ui-diseno-de-producto-digital",
+    "nombre": "UX/UI & Diseño de Producto Digital",
+    "categoria": "Diseño",
+    "tipo": "on-demand"
+  },
+  {
+    "id": "diseno-grafico-de-los-fundamentos-a-adobe-canva",
+    "nombre": "Diseño Gráfico: de los fundamentos a Adobe & Canva",
+    "categoria": "Diseño",
+    "tipo": "on-demand"
+  },
+  {
+    "id": "finanzas-inversion-y-negocio-digital",
+    "nombre": "Finanzas, Inversión y Negocio Digital",
+    "categoria": "Negocios",
+    "tipo": "on-demand"
+  },
+  {
+    "id": "negociacion-y-experiencia-del-cliente",
+    "nombre": "Negociación y Experiencia del Cliente",
+    "categoria": "Negocios",
+    "tipo": "on-demand"
+  },
+  {
+    "id": "liderazgo-y-gestion-de-equipos",
+    "nombre": "Liderazgo y Gestión de Equipos",
+    "categoria": "Negocios",
+    "tipo": "on-demand"
+  },
+  {
+    "id": "consegui-tu-proximo-trabajo-en-la-era-de-la-ia",
+    "nombre": "Conseguí tu próximo trabajo en la era de la IA",
+    "categoria": "Softs Skills",
+    "tipo": "on-demand"
+  },
+  {
+    "id": "habilidades-blandas-para-tu-carrera",
+    "nombre": "Habilidades Blandas para tu Carrera",
+    "categoria": "Softs Skills",
+    "tipo": "on-demand"
+  },
+  {
+    "id": "ia-para-negocios-y-productividad",
+    "nombre": "IA para negocios y productividad",
+    "categoria": "Inteligencia Artificial",
+    "tipo": "on-demand"
+  },
+  {
+    "id": "constructor-de-agentes-de-ia",
+    "nombre": "Constructor de Agentes de IA",
+    "categoria": "Inteligencia Artificial",
+    "tipo": "on-demand"
+  },
+  {
+    "id": "automatizacion-no-code-con-ia",
+    "nombre": "Automatización no-code con IA",
+    "categoria": "Inteligencia Artificial",
+    "tipo": "on-demand"
+  },
+  {
+    "id": "prompt-engineering-del-prompt-al-contenido",
+    "nombre": "Prompt Engineering: del prompt al contenido",
+    "categoria": "Inteligencia Artificial",
+    "tipo": "on-demand"
+  },
+  {
+    "id": "discovery-al-mvp-de-la-voz-del-cliente-al-producto-con-ia",
+    "nombre": "Discovery al MVP: de la voz del cliente al producto con IA",
+    "categoria": "Producto",
+    "tipo": "on-demand"
+  },
+  {
+    "id": "producto-agil-scrum-ops-y-mejora-continua",
+    "nombre": "Producto ágil: Scrum, Ops y mejora continua",
+    "categoria": "Producto",
+    "tipo": "on-demand"
+  },
+  {
+    "id": "pm-de-cero-a-estrategia-fundamentos-priorizacion-y-vision-de-negocio",
+    "nombre": "PM de cero a estrategia: fundamentos, priorización y visión de negocio",
+    "categoria": "Producto",
+    "tipo": "on-demand"
   }
 ]

@@ -1,11 +1,12 @@
 import { Background, Controls, Position, ReactFlow, type Edge, type Node } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { AlertCircle } from "lucide-react";
-import { useMemo } from "react";
+import { AlertCircle, CheckCircle2, Circle, X, Zap } from "lucide-react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { CoderhouseLogo } from "@/components/CoderhouseLogo";
 import { LimboSidebar } from "@/components/limbo/LimboSidebar";
-import { loadRoadmap } from "@/lib/ai/roadmapClient";
+import { loadRoadmap, type Roadmap, type RoadmapNode } from "@/lib/ai/roadmapClient";
+import { nextStatus, useRoadmapProgress, type CourseStatus } from "@/lib/roadmapProgress";
 
 /**
  * Fase 4's result screen — a career roadmap rendered as a connected node
@@ -16,11 +17,23 @@ import { loadRoadmap } from "@/lib/ai/roadmapClient";
  * generates the roadmap via /api/roadmap and hands it off through
  * sessionStorage (src/lib/ai/roadmapClient.ts) before navigating here.
  *
+ * The map's first node is a "trigger" node (n8n-style) summarizing the
+ * person, not a course — every course node connects back to it (directly
+ * or through the chain) and the whole map "fires" from it. Course nodes
+ * that are transversal picks (Softs Skills/Negocios/Producto, chosen to
+ * complement the specialization) get a visual badge instead of blending in
+ * unexplained. Clicking any course node (not the trigger) opens the detail
+ * panel: a static, real-data-only course card plus the AI's personalized
+ * justification, and a demo-only progress control (no real payments/
+ * cursada backend exists) — see src/lib/roadmapProgress.ts.
+ *
  * "Limbo" is this session's internal codename only — it never appears in
  * user-facing copy.
  */
 export default function Plataforma() {
   const roadmap = useMemo(() => loadRoadmap(), []);
+  const { getStatus, advance } = useRoadmapProgress();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   if (!roadmap || roadmap.nodos.length === 0) {
     return (
@@ -45,7 +58,27 @@ export default function Plataforma() {
     );
   }
 
-  const { nodes, edges } = useMemo(() => buildFlow(roadmap), [roadmap]);
+  return <RoadmapCanvas roadmap={roadmap} getStatus={getStatus} advance={advance} selectedId={selectedId} setSelectedId={setSelectedId} />;
+}
+
+function RoadmapCanvas({
+  roadmap,
+  getStatus,
+  advance,
+  selectedId,
+  setSelectedId,
+}: {
+  roadmap: Roadmap;
+  getStatus: (id: string) => CourseStatus;
+  advance: (id: string) => void;
+  selectedId: string | null;
+  setSelectedId: (id: string | null) => void;
+}) {
+  // Recomputed whenever a status changes (getStatus's identity changes with
+  // it — see useRoadmapProgress) so completed/in-progress nodes repaint.
+  const { nodes, edges } = useMemo(() => buildFlow(roadmap, getStatus), [roadmap, getStatus]);
+
+  const selectedNode = selectedId ? roadmap.nodos.find((n) => n.id === selectedId) : null;
 
   return (
     <div className="bg-grid relative h-screen">
@@ -65,101 +98,226 @@ export default function Plataforma() {
           </div>
         </header>
 
-        <ReactFlow nodes={nodes} edges={edges} fitView fitViewOptions={{ padding: 0.3 }} proOptions={{ hideAttribution: true }}>
-          <Background gap={20} />
-          <Controls showInteractive={false} />
-        </ReactFlow>
+        <div className="relative">
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            fitView
+            fitViewOptions={{ padding: 0.3 }}
+            proOptions={{ hideAttribution: true }}
+            onNodeClick={(_, node) => {
+              if (node.id === "trigger") return; // CAMBIO 4: panel excludes the trigger node
+              setSelectedId(node.id);
+            }}
+          >
+            <Background gap={20} />
+            <Controls showInteractive={false} />
+          </ReactFlow>
+
+          {selectedNode && (
+            <DetailPanel
+              node={selectedNode}
+              status={getStatus(selectedNode.id)}
+              onAdvance={() => advance(selectedNode.id)}
+              onClose={() => setSelectedId(null)}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-const BASE_NODE_STYLE: React.CSSProperties = {
+function DetailPanel({
+  node,
+  status,
+  onAdvance,
+  onClose,
+}: {
+  node: RoadmapNode;
+  status: CourseStatus;
+  onAdvance: () => void;
+  onClose: () => void;
+}) {
+  const upcoming = nextStatus(status);
+  const buttonLabel =
+    status === "no-iniciado" ? "Marcar como en progreso" : status === "en-progreso" ? "Marcar como completado (demo)" : null;
+
+  return (
+    <div className="absolute right-0 top-0 h-full w-full max-w-sm overflow-y-auto border-l border-border-soft bg-white shadow-[-8px_0_30px_rgba(0,0,0,0.06)]">
+      <div className="flex items-center justify-between border-b border-border-soft px-5 py-4">
+        <span className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-sm text-ink">Detalle del curso</span>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Cerrar panel"
+          className="flex h-8 w-8 items-center justify-center rounded-full text-ink-muted hover:bg-ink/5 hover:text-ink"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Block 1 — static, real catalog data only. No invented fields
+          (price, schedule, difficulty, syllabus): course-catalog.json only
+          has id/nombre/categoria/tipo right now, so that's all this shows. */}
+      <div className="border-b border-border-soft px-5 py-5">
+        {node.esTransversal && (
+          <span className="mb-2 inline-block rounded-pill bg-ink/5 px-2.5 py-1 font-['Inter:Regular',sans-serif] text-[11px] uppercase tracking-wide text-ink-muted">
+            Curso complementario
+          </span>
+        )}
+        <h2 className="mb-1 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-lg leading-snug text-ink">
+          {node.curso.nombre}
+        </h2>
+        <p className="font-['Inter:Regular',sans-serif] text-sm text-ink-muted">
+          {node.curso.categoria} · {tipoLabel(node.curso.tipo)}
+        </p>
+      </div>
+
+      {/* Block 2 — visually separate: the AI's personalized "why this course,
+          for this person" reasoning (CAMBIO 2/3), never the same text as a
+          generic course description. */}
+      <div className="bg-brand-hover/[0.04] px-5 py-5">
+        <p className="mb-2 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-xs uppercase tracking-[0.4px] text-brand-hover">
+          Por qué está en tu recorrido
+        </p>
+        <p className="font-['Inter:Regular',sans-serif] text-[15px] leading-relaxed text-ink">{node.justificacion}</p>
+      </div>
+
+      {/* CAMBIO 5 — demo-only progress, no real payment/cursada flow. */}
+      <div className="px-5 py-5">
+        <p className="mb-3 flex items-center gap-2 font-['Inter:Regular',sans-serif] text-sm text-ink-muted">
+          <StatusIcon status={status} />
+          {statusLabel(status)}
+        </p>
+        {buttonLabel && (
+          <button
+            type="button"
+            onClick={onAdvance}
+            className="w-full rounded-pill bg-brand-hover px-5 py-2.5 font-['Plus_Jakarta_Sans:Medium',sans-serif] text-sm text-white transition-transform hover:scale-[1.02]"
+          >
+            {buttonLabel}
+          </button>
+        )}
+        {!buttonLabel && (
+          <p className="font-['Inter:Regular',sans-serif] text-xs text-ink-muted">
+            Ya completaste este curso (demo) — próximo estado: {upcoming === status ? "sin cambios" : upcoming}.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StatusIcon({ status }: { status: CourseStatus }) {
+  if (status === "completado") return <CheckCircle2 className="h-4 w-4 text-green-600" />;
+  if (status === "en-progreso") return <Circle className="h-4 w-4 fill-brand-hover text-brand-hover" />;
+  return <Circle className="h-4 w-4 text-ink-muted" />;
+}
+
+function statusLabel(status: CourseStatus): string {
+  if (status === "completado") return "Completado";
+  if (status === "en-progreso") return "En progreso";
+  return "No iniciado";
+}
+
+function tipoLabel(tipo: string): string {
+  if (tipo === "carrera") return "Carrera";
+  if (tipo === "diplomatura") return "Diplomatura";
+  if (tipo === "on-demand") return "On-demand";
+  return "Curso";
+}
+
+const TRIGGER_NODE_STYLE: React.CSSProperties = {
   background: "var(--color-ink, #1a1a1a)",
   color: "white",
   border: "1px solid rgba(255,255,255,0.15)",
-  borderRadius: 12,
-  padding: "10px 16px",
-  fontSize: 13,
-  fontFamily: "Inter, sans-serif",
-  width: 180,
-};
-
-const COURSE_NODE_STYLE: React.CSSProperties = {
-  background: "white",
-  border: "1.5px solid var(--color-brand-hover, #ff5a36)",
   borderRadius: 16,
-  padding: "12px 16px",
+  padding: "14px 18px",
   fontFamily: "Inter, sans-serif",
-  width: 220,
-  boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
+  width: 240,
+  boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
 };
 
-function buildFlow(roadmap: NonNullable<ReturnType<typeof loadRoadmap>>): { nodes: Node[]; edges: Edge[] } {
+function courseNodeStyle(esTransversal: boolean, status: CourseStatus): React.CSSProperties {
+  const accent = esTransversal ? "#8b5cf6" : "var(--color-brand-hover, #ff5a36)";
+  return {
+    background: status === "completado" ? "rgba(34,197,94,0.06)" : "white",
+    border: `1.5px solid ${status === "completado" ? "#22c55e" : accent}`,
+    borderRadius: 16,
+    padding: "12px 16px",
+    fontFamily: "Inter, sans-serif",
+    width: 220,
+    cursor: "pointer",
+    boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
+  };
+}
+
+function buildFlow(roadmap: Roadmap, getStatus: (id: string) => CourseStatus): { nodes: Node[]; edges: Edge[] } {
   const nodes: Node[] = [];
   const edges: Edge[] = [];
-
   const courseGapX = 280;
-  const startX = roadmap.base.length > 0 ? 260 : 0;
 
-  // Fase 1/2 skills the person already brings — stacked vertically before
-  // the course track, so the map doesn't start from zero.
-  roadmap.base.forEach((item, i) => {
-    const id = `base-${i}`;
-    nodes.push({
-      id,
-      position: { x: 0, y: i * 90 - ((roadmap.base.length - 1) * 90) / 2 + 120 },
-      data: { label: item.label },
-      style: BASE_NODE_STYLE,
-      sourcePosition: Position.Right,
-    });
+  nodes.push({
+    id: "trigger",
+    position: { x: 0, y: 140 },
+    data: {
+      label: (
+        <div>
+          <div className="mb-1.5 flex items-center gap-1.5 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-xs uppercase tracking-wide text-white/70">
+            <Zap className="h-3.5 w-3.5" />
+            Tu perfil
+          </div>
+          <p className="font-['Inter:Regular',sans-serif] text-[13px] leading-snug text-white">
+            {roadmap.trigger.resumen}
+          </p>
+        </div>
+      ),
+    },
+    style: TRIGGER_NODE_STYLE,
+    sourcePosition: Position.Right,
   });
 
   roadmap.nodos.forEach((node, i) => {
-    const id = node.id;
+    const status = getStatus(node.id);
     nodes.push({
-      id,
-      position: { x: startX + i * courseGapX, y: 120 },
+      id: node.id,
+      position: { x: 300 + i * courseGapX, y: 140 },
       data: {
         label: (
           <div>
-            <span className="mb-1 block font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-sm text-ink">
-              {node.curso.nombre}
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <span className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-sm text-ink">
+                {node.curso.nombre}
+              </span>
+              <StatusIcon status={status} />
+            </div>
+            <span className="block font-['Inter:Regular',sans-serif] text-[11px] uppercase tracking-wide text-ink-muted">
+              {tipoLabel(node.curso.tipo)} · {node.curso.categoria}
             </span>
-            <span className="block font-['Inter:Regular',sans-serif] text-[11px] uppercase tracking-wide text-brand-hover">
-              {node.curso.tipo === "carrera" ? "Carrera" : "Curso"} · {node.curso.categoria}
-            </span>
+            {node.esTransversal && (
+              <span className="mt-1.5 inline-block rounded-pill bg-purple-100 px-2 py-0.5 font-['Inter:Regular',sans-serif] text-[10px] text-purple-700">
+                Complementario
+              </span>
+            )}
           </div>
         ),
       },
-      style: COURSE_NODE_STYLE,
+      style: courseNodeStyle(node.esTransversal, status),
       sourcePosition: Position.Right,
       targetPosition: Position.Left,
     });
 
-    if (i === 0) {
-      // Every base node feeds into the first course.
-      roadmap.base.forEach((_, bi) => {
-        edges.push({
-          id: `e-base-${bi}-${id}`,
-          source: `base-${bi}`,
-          target: id,
-          animated: false,
-          style: { stroke: "var(--color-border-soft, #ddd)" },
-        });
-      });
-    } else {
-      const prev = roadmap.nodos[i - 1];
-      edges.push({
-        id: `e-${prev.id}-${id}`,
-        source: prev.id,
-        target: id,
-        label: truncate(node.justificacion, 60),
-        labelStyle: { fill: "var(--color-ink-muted, #666)", fontSize: 11, fontFamily: "Inter, sans-serif" },
-        labelBgStyle: { fill: "var(--color-cream-soft, #fff)" },
-        style: { stroke: "var(--color-brand-hover, #ff5a36)" },
-      });
-    }
+    const source = i === 0 ? "trigger" : roadmap.nodos[i - 1].id;
+    edges.push({
+      id: `e-${source}-${node.id}`,
+      source,
+      target: node.id,
+      label: truncate(node.justificacion, 60),
+      labelStyle: { fill: "var(--color-ink-muted, #666)", fontSize: 11, fontFamily: "Inter, sans-serif" },
+      labelBgStyle: { fill: "var(--color-cream-soft, #fff)" },
+      style: { stroke: node.esTransversal ? "#8b5cf6" : "var(--color-brand-hover, #ff5a36)" },
+    });
   });
 
   return { nodes, edges };
