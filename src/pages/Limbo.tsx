@@ -211,6 +211,21 @@ export default function Limbo() {
         </div>
       ) : (
         <div ref={scrollRef} className="mx-auto w-full max-w-2xl flex-1 space-y-4 overflow-y-auto px-6 py-8">
+          {/* Once the CV is confirmed AND the conversation has actually
+              started, its chip moves here — a one-time event in the
+              timeline, at the point it happened, instead of sitting
+              permanently pinned above the input like it was still
+              re-uploading on every message. */}
+          {cv.status === "ready" && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mx-auto flex w-fit items-center gap-1.5 rounded-pill bg-white px-3 py-1.5 font-['Inter:Regular',sans-serif] text-xs text-ink-muted shadow-[0_1px_4px_rgba(0,0,0,0.06)]"
+            >
+              <FileText className="h-3.5 w-3.5 text-brand-hover" />
+              {cv.fileName} adjuntado
+            </motion.div>
+          )}
           {visibleMessages.map((m, i) => (
             <motion.div
               key={i}
@@ -236,9 +251,14 @@ export default function Limbo() {
       )}
 
       <div className="mx-auto w-full max-w-2xl shrink-0 px-6 pb-8">
-        {/* CV status row — only rendered once a file's been picked, sits right
-            above the input pill so it doesn't shift the pill's own height. */}
-        {cv.status !== "idle" && (
+        {/* CV status row — only while attaching is still an in-progress or
+            failed action. Once it's "ready" AND the conversation has
+            started, that state moves into the timeline above instead (see
+            the chip rendered before the message list) so it isn't pinned
+            here forever like a fake re-upload on every turn. Before the
+            conversation starts, "ready" still shows here too (there's no
+            timeline yet to put it in) with the option to remove it. */}
+        {cv.status !== "idle" && (cv.status !== "ready" || !started.current) && (
           <div className="mb-2 flex items-center gap-2 px-1">
             {cv.status === "loading" && (
               <span className="flex items-center gap-1.5 font-['Inter:Regular',sans-serif] text-xs text-ink-muted">
