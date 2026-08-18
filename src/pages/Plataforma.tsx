@@ -6,8 +6,8 @@ import { Link } from "react-router-dom";
 import { CoderhouseLogo } from "@/components/CoderhouseLogo";
 import { LimboSidebar } from "@/components/limbo/LimboSidebar";
 import { CatalogoView } from "@/components/plataforma/CatalogoView";
-import { CvView } from "@/components/plataforma/CvView";
-import { PortfolioView, type PortfolioProject } from "@/components/plataforma/PortfolioView";
+import { PerfilView } from "@/components/plataforma/PerfilView";
+import type { PortfolioProject } from "@/components/plataforma/PortfolioView";
 import { loadRoadmap, type Roadmap, type RoadmapNode } from "@/lib/ai/roadmapClient";
 import { nextStatus, useRoadmapProgress, type CourseStatus } from "@/lib/roadmapProgress";
 
@@ -26,12 +26,18 @@ import { nextStatus, useRoadmapProgress, type CourseStatus } from "@/lib/roadmap
  *   detail panel with real catalog data + the AI's personalized reasoning,
  *   plus a demo-only progress control (src/lib/roadmapProgress.ts).
  *
- *   CV — auto-built once from whatever /limbo collected (the uploaded CV's
- *   text, or the conversation itself if there wasn't one — see
- *   src/lib/profileStore.ts + src/lib/cvParser.ts), no AI rewrite. Its
- *   "Certificaciones Coderhouse" section is derived live from the same
- *   roadmap progress state the map writes to: mark a course completed on
- *   the map, it shows up here.
+ *   Perfil — its own sub-nav (src/components/plataforma/PerfilView.tsx),
+ *   Curriculum first by default:
+ *     - Curriculum: auto-built once from whatever /limbo collected (the
+ *       uploaded CV's text, or the conversation itself if there wasn't one
+ *       — see src/lib/profileStore.ts + src/lib/cvParser.ts), no AI
+ *       rewrite. Its "Certificaciones Coderhouse" section is derived live
+ *       from the same roadmap progress state the map writes to.
+ *     - Portfolio: fills itself with one generic placeholder project per
+ *       course marked "completado" on the map (same progress state again),
+ *       plus the one project the person can still add by hand — both live
+ *       in the same grid.
+ *     - Oferta laboral: placeholder only for now, real design comes later.
  *
  *   Catálogo — a browsable replica of the real Coderhouse catalog
  *   (src/lib/catalogClient.ts reads data/course-catalog.json directly,
@@ -42,16 +48,11 @@ import { nextStatus, useRoadmapProgress, type CourseStatus } from "@/lib/roadmap
  *   "Comprar" is decorative too, and never touches roadmap progress (that's
  *   Recorrido's job only).
  *
- *   Portfolio — one Behance-style project plus a purely visual "Disponible
- *   para trabajar" toggle. Lives in this component's own state (lost on
- *   refresh, intentionally — no database for this scope) and no real
- *   matching/notification logic exists yet.
- *
  * "Limbo" is this session's internal codename only — it never appears in
  * user-facing copy.
  */
 
-type Tab = "mapa" | "cv" | "portfolio" | "catalogo";
+type Tab = "mapa" | "perfil" | "catalogo";
 
 export default function Plataforma() {
   const roadmap = useMemo(() => loadRoadmap(), []);
@@ -115,10 +116,11 @@ export default function Plataforma() {
             setSelectedId={setSelectedId}
           />
         )}
-        {tab === "cv" && <CvView roadmap={roadmap} getStatus={getStatus} getCompletedAt={getCompletedAt} />}
-        {tab === "catalogo" && <CatalogoView />}
-        {tab === "portfolio" && (
-          <PortfolioView
+        {tab === "perfil" && (
+          <PerfilView
+            roadmap={roadmap}
+            getStatus={getStatus}
+            getCompletedAt={getCompletedAt}
             project={project}
             setProject={setProject}
             disponible={disponible}
@@ -127,6 +129,7 @@ export default function Plataforma() {
             setContacto={setContacto}
           />
         )}
+        {tab === "catalogo" && <CatalogoView />}
       </div>
     </div>
   );
@@ -135,9 +138,8 @@ export default function Plataforma() {
 function TabBar({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) {
   const tabs: { id: Tab; label: string }[] = [
     { id: "mapa", label: "Recorrido" },
-    { id: "cv", label: "CV" },
+    { id: "perfil", label: "Perfil" },
     { id: "catalogo", label: "Catálogo" },
-    { id: "portfolio", label: "Portfolio" },
   ];
   return (
     <nav className="ml-auto flex items-center gap-1 rounded-pill bg-white p-1 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
