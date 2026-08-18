@@ -6,7 +6,7 @@ import { Link } from "react-router-dom";
 import { CatalogoView } from "@/components/plataforma/CatalogoView";
 import { NovedadesView } from "@/components/plataforma/NovedadesView";
 import { PanelInicioView } from "@/components/plataforma/PanelInicioView";
-import { PerfilView } from "@/components/plataforma/PerfilView";
+import { PerfilView, type PerfilSection } from "@/components/plataforma/PerfilView";
 import { PlanCarreraPerfilCard } from "@/components/plataforma/PlanCarreraPerfilCard";
 import { PlataformaLayout, type PlataformaTab } from "@/components/plataforma/PlataformaLayout";
 import type { PortfolioProject } from "@/components/plataforma/PortfolioView";
@@ -67,6 +67,10 @@ export default function Plataforma() {
   const { getStatus, getCompletedAt, advance } = useRoadmapProgress();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tab, setTab] = useState<PlataformaTab>("plan-carrera");
+  // Lifted (not local to PerfilView) so PlanCarreraPerfilCard's rows can
+  // deep-link straight into a specific Perfil section instead of just
+  // switching tabs and leaving the person to find it themselves.
+  const [perfilSection, setPerfilSection] = useState<PerfilSection>("curriculum");
 
   // Portfolio state lives here (not in PortfolioView) so it survives
   // switching tabs — see PortfolioView's doc comment for why it's fine to
@@ -104,7 +108,13 @@ export default function Plataforma() {
       {tab === "panel" && <PanelInicioView />}
       {tab === "plan-carrera" && (
         <>
-          <PlanCarreraPerfilCard roadmap={roadmap} getStatus={getStatus} />
+          <PlanCarreraPerfilCard
+            roadmap={roadmap}
+            onNavigate={(section) => {
+              setPerfilSection(section);
+              setTab("perfil");
+            }}
+          />
           <MapaBody
             roadmap={roadmap}
             getStatus={getStatus}
@@ -117,6 +127,8 @@ export default function Plataforma() {
       {tab === "catalogo" && <CatalogoView />}
       {tab === "perfil" && (
         <PerfilView
+          section={perfilSection}
+          setSection={setPerfilSection}
           roadmap={roadmap}
           getStatus={getStatus}
           getCompletedAt={getCompletedAt}

@@ -1,4 +1,3 @@
-import { useState } from "react";
 import type { Roadmap } from "@/lib/ai/roadmapClient";
 import type { CourseStatus } from "@/lib/roadmapProgress";
 import { CvView } from "./CvView";
@@ -13,17 +12,24 @@ import { PortfolioView, type PortfolioProject } from "./PortfolioView";
  * their own top-level tabs — see CvView.tsx and PortfolioView.tsx, neither
  * of which duplicate anything, they're the same components. Oferta laboral
  * is a placeholder until its real design arrives in a separate prompt.
+ *
+ * `section` is controlled from src/pages/Plataforma.tsx (not local state)
+ * so PlanCarreraPerfilCard's rows can deep-link straight into a specific
+ * section (e.g. "Proyectos" -> Perfil/Portfolio) instead of just switching
+ * to the Perfil tab and leaving the person to find it themselves.
  */
 
-type Section = "curriculum" | "portfolio" | "oferta";
+export type PerfilSection = "curriculum" | "portfolio" | "oferta";
 
-const SECTIONS: { id: Section; label: string }[] = [
+const SECTIONS: { id: PerfilSection; label: string }[] = [
   { id: "curriculum", label: "Curriculum" },
   { id: "portfolio", label: "Portfolio" },
   { id: "oferta", label: "Oferta laboral" },
 ];
 
 export function PerfilView({
+  section,
+  setSection,
   roadmap,
   getStatus,
   getCompletedAt,
@@ -36,6 +42,8 @@ export function PerfilView({
   contacto,
   setContacto,
 }: {
+  section: PerfilSection;
+  setSection: (s: PerfilSection) => void;
   roadmap: Roadmap;
   getStatus: (id: string) => CourseStatus;
   getCompletedAt: (id: string) => string | undefined;
@@ -48,8 +56,6 @@ export function PerfilView({
   contacto: string;
   setContacto: (v: string) => void;
 }) {
-  const [section, setSection] = useState<Section>("curriculum");
-
   return (
     <div className="flex flex-1 overflow-hidden">
       <aside className="hidden w-52 shrink-0 border-r border-border-soft bg-white px-3 py-6 lg:block">
