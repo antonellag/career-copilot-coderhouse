@@ -1,4 +1,4 @@
-import { Bell, Gift, MessageSquareText, UserRound } from "lucide-react";
+import { Bell, Gift, MessageSquareText, Rocket, UserRound } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { CoderhouseLogo } from "@/components/CoderhouseLogo";
@@ -11,8 +11,9 @@ import { CoderhouseLogo } from "@/components/CoderhouseLogo";
  * src/index.css), and its own two-row nav instead of /limbo's floating
  * phase sidebar:
  *
- *   Top row — logo, a "workshops" pill, "Upgrade a Pro", notifications,
- *   profile.
+ *   Top row — logo, a "0/4 workshops" pill, "Upgrade a Pro", notifications,
+ *   profile (per the boceto: peach pill, rocket-icon CTA, dark avatar with
+ *   an orange ring, notifications bell right next to it).
  *   Sub-nav row — the 5 real platform sections (Panel inicio/Plan carrera/
  *   Catálogo/Perfil/Novedades) on the left, "Feedback" and "Referí y ganá"
  *   on the right.
@@ -48,15 +49,16 @@ export function PlataformaLayout({
         <Link to="/" className="flex items-center gap-2 text-ink">
           <CoderhouseLogo className="h-5 w-auto" />
         </Link>
-        <span className="hidden rounded-pill bg-ink/5 px-3 py-1 font-['Inter:Regular',sans-serif] text-xs text-ink-muted sm:inline-block">
-          workshops
+        <span className="hidden rounded-pill bg-brand-hover/10 px-3 py-1 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-xs text-brand-hover sm:inline-block">
+          0/4 workshops
         </span>
 
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
           <button
             type="button"
-            className="rounded-pill bg-brand-hover px-4 py-2 font-['Plus_Jakarta_Sans:Medium',sans-serif] text-xs text-white transition-transform hover:scale-105 sm:text-sm"
+            className="inline-flex items-center gap-1.5 rounded-pill bg-brand-hover px-4 py-2 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-xs text-white transition-transform hover:scale-105 sm:text-sm"
           >
+            <Rocket className="h-3.5 w-3.5" />
             Upgrade a Pro
           </button>
           <button
@@ -69,7 +71,7 @@ export function PlataformaLayout({
           <button
             type="button"
             aria-label="Perfil"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-ink/5 text-ink-muted transition-colors hover:text-ink"
+            className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-brand-hover bg-ink text-white transition-opacity hover:opacity-90"
           >
             <UserRound className="h-4 w-4" />
           </button>
