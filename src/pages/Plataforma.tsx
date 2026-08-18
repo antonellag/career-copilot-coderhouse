@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { CoderhouseLogo } from "@/components/CoderhouseLogo";
 import { LimboSidebar } from "@/components/limbo/LimboSidebar";
+import { CatalogoView } from "@/components/plataforma/CatalogoView";
 import { CvView } from "@/components/plataforma/CvView";
 import { PortfolioView, type PortfolioProject } from "@/components/plataforma/PortfolioView";
 import { loadRoadmap, type Roadmap, type RoadmapNode } from "@/lib/ai/roadmapClient";
@@ -12,7 +13,7 @@ import { nextStatus, useRoadmapProgress, type CourseStatus } from "@/lib/roadmap
 
 /**
  * The student platform's landing screens, reached from /limbo's "Procesar
- * resultado" button (src/pages/Limbo.tsx). Three tabs sharing one shell —
+ * resultado" button (src/pages/Limbo.tsx). Four tabs sharing one shell —
  * self-contained on purpose (per the brief: the real platform isn't
  * designed yet), no further navigation or backend beyond what each part
  * needs:
@@ -32,6 +33,15 @@ import { nextStatus, useRoadmapProgress, type CourseStatus } from "@/lib/roadmap
  *   roadmap progress state the map writes to: mark a course completed on
  *   the map, it shows up here.
  *
+ *   Catálogo — a browsable replica of the real Coderhouse catalog
+ *   (src/lib/catalogClient.ts reads data/course-catalog.json directly,
+ *   client-side, no /api call needed for pure browsing). Search-by-name and
+ *   the categoría filter are real; "Más vendidos"/"Nuevos"/"Nivel" are
+ *   decorative — there's no real sales/publish-date/difficulty data for
+ *   these 57 courses, so they don't filter anything rather than fake it.
+ *   "Comprar" is decorative too, and never touches roadmap progress (that's
+ *   Recorrido's job only).
+ *
  *   Portfolio — one Behance-style project plus a purely visual "Disponible
  *   para trabajar" toggle. Lives in this component's own state (lost on
  *   refresh, intentionally — no database for this scope) and no real
@@ -41,7 +51,7 @@ import { nextStatus, useRoadmapProgress, type CourseStatus } from "@/lib/roadmap
  * user-facing copy.
  */
 
-type Tab = "mapa" | "cv" | "portfolio";
+type Tab = "mapa" | "cv" | "portfolio" | "catalogo";
 
 export default function Plataforma() {
   const roadmap = useMemo(() => loadRoadmap(), []);
@@ -85,7 +95,10 @@ export default function Plataforma() {
         <LimboSidebar currentPhase="resultado" resultadoComplete />
       </div>
 
-      <div className="grid h-full grid-rows-[auto_1fr] overflow-hidden">
+      {/* lg:pl-64 reserves a column for the floating sidebar above (w-60 +
+          left-4 offset) so nothing — Catálogo's own sub-nav in particular —
+          renders underneath its opaque card. */}
+      <div className="grid h-full grid-rows-[auto_1fr] overflow-hidden lg:pl-64">
         <header className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-8">
           <Link to="/" className="flex items-center gap-2 text-ink-muted transition-colors hover:text-ink lg:hidden">
             <CoderhouseLogo className="h-4 w-auto" />
@@ -103,6 +116,7 @@ export default function Plataforma() {
           />
         )}
         {tab === "cv" && <CvView roadmap={roadmap} getStatus={getStatus} getCompletedAt={getCompletedAt} />}
+        {tab === "catalogo" && <CatalogoView />}
         {tab === "portfolio" && (
           <PortfolioView
             project={project}
@@ -122,6 +136,7 @@ function TabBar({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) {
   const tabs: { id: Tab; label: string }[] = [
     { id: "mapa", label: "Recorrido" },
     { id: "cv", label: "CV" },
+    { id: "catalogo", label: "Catálogo" },
     { id: "portfolio", label: "Portfolio" },
   ];
   return (
