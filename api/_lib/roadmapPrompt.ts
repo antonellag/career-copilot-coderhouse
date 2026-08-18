@@ -5,12 +5,17 @@
  * output call that returns JSON matching ROADMAP_RESPONSE_SCHEMA below, not
  * a conversational reply.
  *
- * Two real-feedback changes baked in here (see src/pages/Plataforma.tsx for
- * how each renders):
- * - The map's first node isn't a course — it's a "trigger" node (n8n-style)
- *   summarizing the person (identity/experience/skills/CV), and the first
- *   course's justification has to cite something concrete from what they
- *   said, same as it already connects each course to the next.
+ * Real-feedback changes baked in here (see src/pages/Plataforma.tsx for how
+ * each renders):
+ * - The map's first node isn't a course — it's a "trigger" node (n8n-style),
+ *   not a menu, not a course. It holds real text summarizing each thing
+ *   /limbo actually covered (CV if any, Experiencia, Habilidades, and the
+ *   RIASEC test), broken into topic sections (`trigger.experiencia`,
+ *   `.habilidades`, `.planDeCarrera`, `.estrategiaYEspecializacion`)
+ *   instead of one paragraph, so each topic gets its own grounded summary
+ *   instead of everything getting compressed into a single blurb.
+ * - The first course's justification has to cite something concrete from
+ *   what they said, same as it already connects each course to the next.
  * - The course selection isn't just the specialization track — 1-2 picks
  *   have to come from Softs Skills/Negocios/Producto (TRANSVERSAL_CATEGORIES),
  *   chosen with real reasoning, each flagged `esTransversal` so the UI can
@@ -25,15 +30,30 @@ export const ROADMAP_RESPONSE_SCHEMA: Schema = {
     trigger: {
       type: SchemaType.OBJECT,
       description:
-        "Resumen del perfil de la persona a partir de TODA la conversación — el nodo de arranque del mapa, no un curso.",
+        "El nodo de arranque del mapa (no un curso, no un menú) — texto real resumiendo cada tema que se cubrió en la conversación, en base a TODA la conversación (CV si lo hay, fase Experiencia, fase Habilidades, y el resultado del test RIASEC).",
       properties: {
-        resumen: {
+        experiencia: {
           type: SchemaType.STRING,
           description:
-            "3-5 oraciones: quién es la persona, resumen de su experiencia, herramientas/habilidades detectadas, y si adjuntó CV, una referencia breve a eso. Concreto, nada de relleno genérico.",
+            "2-3 oraciones resumiendo la experiencia profesional/laboral de la persona, en base al CV (si lo adjuntó) y a lo que contó en la fase Experiencia. Concreto — cita roles, empresas o tareas reales que haya mencionado, nunca genérico.",
+        },
+        habilidades: {
+          type: SchemaType.STRING,
+          description:
+            "2-3 oraciones resumiendo las herramientas y habilidades identificadas — las del CV (si las hay) más lo que surgió en la fase Habilidades. Concreto, nombra herramientas/habilidades reales que haya dicho.",
+        },
+        planDeCarrera: {
+          type: SchemaType.STRING,
+          description:
+            "1-2 oraciones explicando la lógica del recorrido de cursos que armaste: por qué ese orden, qué cubre en conjunto.",
+        },
+        estrategiaYEspecializacion: {
+          type: SchemaType.STRING,
+          description:
+            "2-3 oraciones con el análisis y la estrategia de especialización: apoyate en el resultado del test vocacional (RIASEC) y en lo que la persona contó para explicar las bases de un progreso progresivo y acorde a su perfil — por qué esta estrategia tiene sentido para ELLA, no una estrategia genérica.",
         },
       },
-      required: ["resumen"],
+      required: ["experiencia", "habilidades", "planDeCarrera", "estrategiaYEspecializacion"],
     },
     nodos: {
       type: SchemaType.ARRAY,
@@ -66,7 +86,7 @@ export function buildRoadmapPrompt(transcript: string, riasecLabels: string[]): 
 
 Reglas, no negociables:
 - Cada "id" que devuelvas tiene que ser EXACTAMENTE uno de los ids del catálogo de abajo. Nunca inventes un curso ni un id que no esté en esta lista.
-- El campo "trigger.resumen" resume quién es la persona a partir de TODA la conversación (identidad, experiencia, herramientas/habilidades, y si hay un bloque "--- CV adjunto ---" en la conversación, una referencia breve a eso).
+- "trigger" tiene 4 campos de texto, cada uno resumiendo un tema real de la conversación (no un resumen genérico único): "experiencia" (CV + fase Experiencia), "habilidades" (CV + fase Habilidades), "planDeCarrera" (por qué este orden de cursos), "estrategiaYEspecializacion" (análisis apoyado en el resultado del test RIASEC explicando la lógica de progreso). Cada uno tiene que citar algo concreto y real de la conversación — nunca relleno genérico que serviría para cualquier persona.
 - El curso en orden 1 es el que sigue directamente del perfil de la persona — su "justificacion" tiene que citar algo concreto que dijo (una herramienta, un interés, algo textual), no ser genérica.
 - De los 4 a 7 cursos totales, 1 o 2 tienen que ser picks TRANSVERSALES: cursos de las categorías ${TRANSVERSAL_CATEGORIES.join(", ")} (nunca de la especialización central), marcados con "esTransversal": true, elegidos con criterio real según lo que la conversación sugiere que le serviría a esta persona (ej. alguien muy técnico se beneficia de un curso de habilidades blandas o de negocio para poder comunicarse con los equipos con los que va a trabajar). La "justificacion" de estos cursos tiene que explicar EXPLÍCITAMENTE por qué están ahí aunque no sean el foco central del camino — nunca pueden aparecer sin esa explicación, se sentirían relleno random. El resto de los cursos (esTransversal: false) forma el camino central de especialización.
 - Ninguna "justificacion" puede ser una descripción genérica del curso que serviría para cualquier persona — siempre conectada a algo real de esta conversación y/o su resultado del test.

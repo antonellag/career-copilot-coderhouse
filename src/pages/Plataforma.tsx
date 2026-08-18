@@ -306,19 +306,34 @@ function tipoLabel(tipo: string): string {
   return "Curso";
 }
 
-// Per current scope: just another node in the chain, same footprint as the
-// course cards (width 220, same radius/shadow) instead of a bigger,
-// separately-treated element — no dedicated side profile card for now.
+// Wider than the course cards (280 vs 220) since it now carries real text
+// per topic instead of a one-line label — still just one more node in the
+// chain, not a separately-treated side card (see git history for that
+// back-and-forth).
 const TRIGGER_NODE_STYLE: React.CSSProperties = {
   background: "var(--color-ink, #1a1a1a)",
   color: "white",
   border: "1.5px solid rgba(255,255,255,0.15)",
   borderRadius: 16,
-  padding: "12px 16px",
+  padding: "14px 16px",
   fontFamily: "Inter, sans-serif",
-  width: 220,
+  width: 280,
   boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
 };
+
+// Each of the trigger node's 4 topic sections — real per-topic text from
+// the model (api/_lib/roadmapPrompt.ts), not a single blurb. Skips
+// rendering entirely if the model left a field empty rather than showing a
+// blank heading.
+function TriggerSection({ title, text, last = false }: { title: string; text: string; last?: boolean }) {
+  if (!text) return null;
+  return (
+    <div className={last ? "" : "mb-2.5"}>
+      <p className="mb-0.5 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-[11px] text-white">{title}</p>
+      <p className="font-['Inter:Regular',sans-serif] text-[12px] leading-snug text-white/75">{text}</p>
+    </div>
+  );
+}
 
 function courseNodeStyle(esTransversal: boolean, status: CourseStatus): React.CSSProperties {
   const accent = esTransversal ? "#8b5cf6" : "var(--color-brand-hover, #ff5a36)";
@@ -366,13 +381,15 @@ function buildFlow(roadmap: Roadmap, getStatus: (id: string) => CourseStatus): {
     data: {
       label: (
         <div>
-          <div className="mb-1.5 flex items-center gap-1.5 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-xs uppercase tracking-wide text-white/70">
+          <div className="mb-2.5 flex items-center gap-1.5 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-xs uppercase tracking-wide text-white/70">
             <Zap className="h-3.5 w-3.5" />
             Tu perfil
           </div>
-          <p className="font-['Inter:Regular',sans-serif] text-[13px] leading-snug text-white">
-            {truncate(roadmap.trigger.resumen, 90)}
-          </p>
+          <TriggerSection title="Experiencia" text={roadmap.trigger.experiencia} />
+          <TriggerSection title="Habilidades" text={roadmap.trigger.habilidades} />
+          <TriggerSection title="Plan de carrera" text={roadmap.trigger.planDeCarrera} />
+          <div className="my-2.5 border-t border-white/15" />
+          <TriggerSection title="Estrategia y especialización" text={roadmap.trigger.estrategiaYEspecializacion} last />
         </div>
       ),
     },

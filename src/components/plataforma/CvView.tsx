@@ -29,7 +29,14 @@ export function CvView({
   getCompletedAt: (id: string) => string | undefined;
 }) {
   const [editOpen, setEditOpen] = useState(false);
-  const cv = useMemo(() => parseCv(loadProfileInput(), roadmap.trigger.resumen), [roadmap]);
+  // trigger no longer has one single "resumen" string (it's now split into
+  // topic sections for the map's trigger node) — combine the two closest
+  // ones as this fallback's equivalent when there's no CV to parse.
+  const fallbackResumen = useMemo(
+    () => [roadmap.trigger.experiencia, roadmap.trigger.habilidades].filter(Boolean).join(" "),
+    [roadmap],
+  );
+  const cv = useMemo(() => parseCv(loadProfileInput(), fallbackResumen), [fallbackResumen]);
 
   const certifications = roadmap.nodos
     .filter((n) => getStatus(n.id) === "completado")

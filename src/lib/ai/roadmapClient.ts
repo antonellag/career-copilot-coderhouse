@@ -4,7 +4,12 @@
  * chat turn, see api/roadmap.ts.
  */
 
-export type RoadmapTrigger = { resumen: string };
+export type RoadmapTrigger = {
+  experiencia: string;
+  habilidades: string;
+  planDeCarrera: string;
+  estrategiaYEspecializacion: string;
+};
 
 export type RoadmapCourse = {
   id: string;

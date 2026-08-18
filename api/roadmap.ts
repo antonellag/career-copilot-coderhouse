@@ -11,13 +11,20 @@ import { getCourseById, type Course } from "./_lib/courseCatalog.js";
  * (never a free-text course name).
  *
  * Request body: { transcript: string, riasecLabels: string[] }
- * Response body: { trigger: {resumen: string}, nodos: RoadmapNode[] }
+ * Response body: { trigger: RoadmapTrigger, nodos: RoadmapNode[] }
  */
 
 const MODEL_NAME = "gemini-3.5-flash";
 
+export type RoadmapTrigger = {
+  experiencia: string;
+  habilidades: string;
+  planDeCarrera: string;
+  estrategiaYEspecializacion: string;
+};
+
 type RawNode = { id: string; orden: number; esTransversal: boolean; justificacion: string };
-type RawResponse = { trigger?: { resumen: string }; nodos?: RawNode[] };
+type RawResponse = { trigger?: Partial<RoadmapTrigger>; nodos?: RawNode[] };
 
 export type RoadmapNode = {
   id: string;
@@ -81,7 +88,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
-    const trigger = { resumen: parsed.trigger?.resumen?.trim() || "Perfil armado a partir de tu conversación." };
+    const trigger: RoadmapTrigger = {
+      experiencia: parsed.trigger?.experiencia?.trim() || "Perfil armado a partir de tu conversación.",
+      habilidades: parsed.trigger?.habilidades?.trim() || "",
+      planDeCarrera: parsed.trigger?.planDeCarrera?.trim() || "",
+      estrategiaYEspecializacion: parsed.trigger?.estrategiaYEspecializacion?.trim() || "",
+    };
 
     res.status(200).json({ trigger, nodos });
   } catch (error) {
