@@ -27,7 +27,7 @@ export type ParsedCv = {
   extra: string[];
 };
 
-const EXPERIENCE_ENTRY_RE = /^(.+?)\s+en\s+(.+?)\s*\(([^)]+)\)\.?$/i;
+const EXPERIENCE_ENTRY_RE = /^(.+?)\s+(?:en|@|-|—)\s+(.+?)\s*\(([^)]+)\)\.?$/i;
 const HEADER_RE =
   /^(experiencia(\s+laboral)?|educaci[oó]n|formaci[oó]n(\s+acad[eé]mica)?|habilidades|herramientas|skills|tecnolog[ií]as)\s*:?$/i;
 const TOOLS_LINE_RE = /^(herramientas|habilidades|skills|tecnolog[ií]as)\s*:\s*(.+)$/i;
@@ -77,10 +77,16 @@ function parseFromCvText(cvText: string): ParsedCv {
       continue;
     }
 
-    const expMatch = line.match(EXPERIENCE_ENTRY_RE);
-    if (expMatch) {
-      experiencia.push({ puesto: expMatch[1].trim(), empresa: expMatch[2].trim(), fechas: expMatch[3].trim() });
-      continue;
+    // The "<puesto> en <empresa> (<fechas>)" shape only counts as a work
+    // entry while we're in the experiencia section — inside educacion the
+    // same shape shows up for degrees ("Licenciatura en Diseño, UBA
+    // (2015-2019)") and has to stay there, not leak into work history.
+    if (section !== "educacion") {
+      const expMatch = line.match(EXPERIENCE_ENTRY_RE);
+      if (expMatch) {
+        experiencia.push({ puesto: expMatch[1].trim(), empresa: expMatch[2].trim(), fechas: expMatch[3].trim() });
+        continue;
+      }
     }
 
     if (section === "educacion") {
