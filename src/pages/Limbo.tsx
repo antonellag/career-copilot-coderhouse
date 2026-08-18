@@ -152,19 +152,6 @@ export default function Limbo() {
     startConversation(`Me interesa explorar ${label}. Contame vos por dónde empezamos.`);
   };
 
-  if (phase === "test") {
-    return (
-      <LimboShell phase={phase}>
-        <RiasecTest
-          onComplete={(code) => {
-            setRiasecCode(code);
-            setPhase("resultado");
-          }}
-        />
-      </LimboShell>
-    );
-  }
-
   if (profile && profile.paths.length > 0) {
     return (
       <LimboShell phase={phase}>
@@ -241,16 +228,50 @@ export default function Limbo() {
               {m.content}
             </motion.div>
           ))}
-          {isLoading && (
+          {isLoading && phase !== "test" && (
             <div className="max-w-[85%] rounded-2xl rounded-bl-md border border-border-soft bg-white px-4 py-3 font-['Inter:Regular',sans-serif] text-[15px] text-ink-muted shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
               Pensando…
             </div>
           )}
           {error && <p className="font-['Inter:Regular',sans-serif] text-sm text-red-600">{error}</p>}
+
+          {/* Fase 3 (Test) — used to be its own full-screen route step; now
+              renders as a special message type inside this same chat
+              timeline instead of swapping the whole screen out, so the
+              person never leaves the conversation container. The dashed
+              card wrapper (distinct from both the white assistant bubbles
+              and the solid user bubbles above) is what marks it as a
+              different kind of turn, on top of RiasecTest's own "Test
+              vocacional" label. */}
+          {phase === "test" && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mx-auto w-full max-w-md rounded-3xl border-2 border-dashed border-brand-hover/30 bg-brand-hover/[0.04]"
+            >
+              <RiasecTest
+                inline
+                onComplete={(code) => {
+                  setRiasecCode(code);
+                  setPhase("resultado");
+                }}
+              />
+            </motion.div>
+          )}
         </div>
       )}
 
       <div className="mx-auto w-full max-w-2xl shrink-0 px-6 pb-8">
+        {/* While the RIASEC test card is active, the person interacts by
+            tapping options up in the timeline, not by typing — so the chat
+            input steps aside instead of sitting there as a second,
+            confusing way to respond. */}
+        {phase === "test" && (
+          <p className="mb-2 text-center font-['Inter:Regular',sans-serif] text-xs text-ink-muted">
+            Respondé el test de arriba para continuar
+          </p>
+        )}
+
         {/* CV status row — only while attaching is still an in-progress or
             failed action. Once it's "ready" AND the conversation has
             started, that state moves into the timeline above instead (see
@@ -258,7 +279,7 @@ export default function Limbo() {
             here forever like a fake re-upload on every turn. Before the
             conversation starts, "ready" still shows here too (there's no
             timeline yet to put it in) with the option to remove it. */}
-        {cv.status !== "idle" && (cv.status !== "ready" || !started.current) && (
+        {phase !== "test" && cv.status !== "idle" && (cv.status !== "ready" || !started.current) && (
           <div className="mb-2 flex items-center gap-2 px-1">
             {cv.status === "loading" && (
               <span className="flex items-center gap-1.5 font-['Inter:Regular',sans-serif] text-xs text-ink-muted">
@@ -289,7 +310,7 @@ export default function Limbo() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className={phase === "test" ? "pointer-events-none opacity-40" : undefined}>
           <div className="flex items-center gap-2 rounded-pill border border-border-soft bg-white p-2 shadow-[0_8px_24px_rgba(0,0,0,0.08)]">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-hover text-white">
               <Wand2 className="h-4 w-4" strokeWidth={2} />
@@ -298,7 +319,7 @@ export default function Limbo() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Hablá con el Experto IA de Coderhouse"
-              disabled={isLoading}
+              disabled={isLoading || phase === "test"}
               className="flex-1 bg-transparent px-1 py-2 font-['Inter:Regular',sans-serif] text-sm text-ink outline-none placeholder:text-ink-muted"
             />
             {!started.current && (

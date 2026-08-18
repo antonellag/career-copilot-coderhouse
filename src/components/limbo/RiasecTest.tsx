@@ -7,8 +7,21 @@ import { RIASEC_QUESTIONS, scoreRiasec, type RiasecAnswers, type RiasecDimension
  * tap one, card animates out and the next one animates in. No 1-5 scale on
  * purpose (see prompt-claude-code-fases-limbo.md: a scale collects noisy
  * middle-of-the-road answers that don't carry real signal).
+ *
+ * `inline`: renders inside the /limbo chat timeline (Limbo.tsx) instead of
+ * as its own full-screen route step. The card mechanics (progress bar,
+ * two-option card, tap-to-advance transition) are untouched — only the
+ * outer wrapper's height/centering classes change, since inline it lives
+ * inside a scrolling message list with its own height instead of owning
+ * the whole viewport.
  */
-export function RiasecTest({ onComplete }: { onComplete: (code: RiasecDimension[]) => void }) {
+export function RiasecTest({
+  onComplete,
+  inline = false,
+}: {
+  onComplete: (code: RiasecDimension[]) => void;
+  inline?: boolean;
+}) {
   const [started, setStarted] = useState(false);
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<RiasecAnswers>([]);
@@ -38,7 +51,13 @@ export function RiasecTest({ onComplete }: { onComplete: (code: RiasecDimension[
 
   if (!started) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
+      <div
+        className={
+          inline
+            ? "flex flex-col items-center px-4 py-6 text-center"
+            : "flex flex-1 flex-col items-center justify-center px-6 text-center"
+        }
+      >
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
           <p className="mb-3 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-xs uppercase tracking-[0.6px] text-brand-hover">
             Test vocacional
@@ -63,7 +82,13 @@ export function RiasecTest({ onComplete }: { onComplete: (code: RiasecDimension[
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center px-6">
+    <div
+      className={
+        inline
+          ? "flex flex-col items-center px-4 py-6"
+          : "flex flex-1 flex-col items-center justify-center px-6"
+      }
+    >
       <div className="mb-8 flex w-full max-w-md items-center gap-3">
         <div className="h-1.5 flex-1 overflow-hidden rounded-pill bg-ink/10">
           <motion.div
