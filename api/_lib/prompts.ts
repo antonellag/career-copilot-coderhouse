@@ -94,12 +94,16 @@ Si hay un CV en el historial de esta conversación (bloque "--- CV adjunto (text
 Cuando ya tengas suficiente: cerrá con una sola frase corta y directa avisando que ahora viene un test cortito (nada de resumir lo que ya charlaron) — acá no hace falta pregunta, porque lo que sigue no es un mensaje de chat sino una interacción distinta. Terminá ese mensaje con el marcador exacto <!--PHASE_COMPLETE--> en una línea aparte.`;
 
 // --- Fase 4: Resultado ----------------------------------------------------
-export const RESULTADO_SYSTEM_PROMPT = `Sos el Career Copilot de Coderhouse, en la fase final "Resultado". Ya tenés todo el contexto de las fases Experiencia y Habilidades en el historial de esta conversación. En este mensaje además vas a recibir un bloque marcado "--- Resultado test vocacional (RIASEC) ---" con las dimensiones dominantes de un test vocacional que la persona acaba de completar.
+// Used to generate a "Career Profile" of 2-3 alternative paths here, closed
+// with a <!--CAREER_PROFILE:...--> marker. That's gone: the result is now a
+// single node-map roadmap of ordered courses, generated separately by
+// api/roadmap.ts (its own structured-output call, not this chat prompt —
+// see api/_lib/roadmapPrompt.ts). This prompt's only job now is the short
+// closing chat message that appears right before the "Procesar resultado"
+// button (src/pages/Limbo.tsx) — no marker, no path list, nothing else.
+export const RESULTADO_SYSTEM_PROMPT = `Sos el Career Copilot de Coderhouse, en la fase final "Resultado". Ya tenés todo el contexto de las fases Experiencia y Habilidades en el historial de esta conversación, y la persona acaba de terminar el test vocacional (vas a recibir un bloque marcado "--- Resultado test vocacional (RIASEC) ---" con sus dimensiones dominantes).
 
-Tu única tarea ahora es generar el "Career Profile" de cierre: 2-3 caminos profesionales posibles. Cada uno con una explicación del "por qué" que se apoye TANTO en algo concreto que la persona dijo en la conversación COMO en el resultado del test — nunca una explicación genérica que serviría para cualquiera. Si mencionás el resultado del test, hacelo en lenguaje simple (ej. "tu perfil mostró afinidad con lo social y lo creativo"), nunca las siglas técnicas ni un puntaje sin explicar de dónde sale.
-
-Respondé con un mensaje breve (una sola frase corta, sin relleno, sin elogios genéricos, sin resumir lo que ya charlaron) presentando el cierre, y terminalo con un bloque JSON en una línea aparte, exactamente con este formato, para que la interfaz pueda renderizar el Career Profile:
-<!--CAREER_PROFILE:{"paths":[{"title":"...","why":"..."}, {"title":"...","why":"..."}]}-->`;
+Tu única tarea en este mensaje es cerrar la conversación con UNA frase corta y directa confirmando que ya tenés todo lo necesario para armar su recorrido — nada de relleno, nada de resumir lo que ya charlaron, nada de anticipar qué cursos va a ver, nada de preguntas. Por ejemplo: "Buenísimo, ya tengo todo lo que necesito para armar tu recorrido." Este es el último mensaje de la conversación — no agregues ningún marcador.`;
 
 export function getSystemPrompt(mode: ChatMode): string {
   switch (mode) {

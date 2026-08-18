@@ -19,7 +19,17 @@ const STEPS: { phase: LimboPhase; label: string; icon: typeof Folder }[] = [
  * state machine): steps before the current one show a checkmark (done),
  * the current one is highlighted, steps after are muted (not reached yet).
  */
-export function LimboSidebar({ currentPhase }: { currentPhase: LimboPhase }) {
+export function LimboSidebar({
+  currentPhase,
+  resultadoComplete = false,
+}: {
+  currentPhase: LimboPhase;
+  /** Fase 4 (Resultado) is also "current" while its roadmap is generating —
+   * this flips it to the done checkmark once the node map is actually on
+   * screen (src/pages/Plataforma.tsx), since it's otherwise the last step
+   * and would never fall before `currentIndex`. */
+  resultadoComplete?: boolean;
+}) {
   const currentIndex = PHASE_ORDER.indexOf(currentPhase);
 
   return (
@@ -27,7 +37,7 @@ export function LimboSidebar({ currentPhase }: { currentPhase: LimboPhase }) {
       <CoderhouseLogo className="mb-8 h-9 w-auto text-ink" />
       <nav className="flex flex-col gap-1">
         {STEPS.map(({ phase, label, icon: Icon }, i) => {
-          const isDone = i < currentIndex;
+          const isDone = i < currentIndex || (phase === "resultado" && resultadoComplete);
           const isActive = i === currentIndex;
           return (
             <div

@@ -1,0 +1,142 @@
+[
+  {
+    "id": "intro-ia",
+    "nombre": "Introducción a la IA",
+    "categoria": "Inteligencia Artificial",
+    "tipo": "curso",
+    "descripcion": "Bases de IA generativa y sus aplicaciones prácticas."
+  },
+  {
+    "id": "creacion-productos-ia",
+    "nombre": "Creación de productos con IA",
+    "categoria": "Inteligencia Artificial",
+    "tipo": "curso",
+    "descripcion": "Diseñar y construir productos digitales potenciados por IA."
+  },
+  {
+    "id": "carrera-ai-automation",
+    "nombre": "Carrera de AI Automation",
+    "categoria": "Inteligencia Artificial",
+    "tipo": "carrera",
+    "descripcion": "Automatización de procesos con herramientas de IA."
+  },
+  {
+    "id": "carrera-ai-marketing",
+    "nombre": "Carrera de AI Marketing",
+    "categoria": "Inteligencia Artificial",
+    "tipo": "carrera",
+    "descripcion": "Marketing potenciado por IA de punta a punta."
+  },
+  {
+    "id": "desarrollo-web",
+    "nombre": "Desarrollo Web",
+    "categoria": "Programación y Desarrollo",
+    "tipo": "curso",
+    "descripcion": "Fundamentos de desarrollo web moderno."
+  },
+  {
+    "id": "backend",
+    "nombre": "Backend",
+    "categoria": "Programación y Desarrollo",
+    "tipo": "curso",
+    "descripcion": "Lógica de servidor, APIs y bases de datos."
+  },
+  {
+    "id": "react-native",
+    "nombre": "React Native",
+    "categoria": "Programación y Desarrollo",
+    "tipo": "curso",
+    "descripcion": "Desarrollo de apps móviles multiplataforma."
+  },
+  {
+    "id": "carrera-desarrollo-aplicaciones",
+    "nombre": "Carrera de Desarrollo de Aplicaciones",
+    "categoria": "Programación y Desarrollo",
+    "tipo": "carrera",
+    "descripcion": "Formación completa para desarrollar aplicaciones de punta a punta."
+  },
+  {
+    "id": "carrera-fullstack",
+    "nombre": "Carrera de Desarrollo Full Stack",
+    "categoria": "Programación y Desarrollo",
+    "tipo": "carrera",
+    "descripcion": "Desarrollo frontend y backend integral."
+  },
+  {
+    "id": "carrera-frontend-react",
+    "nombre": "Carrera de Desarrollo Frontend React",
+    "categoria": "Programación y Desarrollo",
+    "tipo": "carrera",
+    "descripcion": "Especialización en interfaces con React."
+  },
+  {
+    "id": "carrera-backend",
+    "nombre": "Carrera de Desarrollo Backend",
+    "categoria": "Programación y Desarrollo",
+    "tipo": "carrera",
+    "descripcion": "Especialización en lógica de servidor y arquitectura."
+  },
+  {
+    "id": "diseno-ux-ui",
+    "nombre": "Diseño UX/UI",
+    "categoria": "Diseño UX/UI",
+    "tipo": "curso",
+    "descripcion": "Diseño de experiencias e interfaces centradas en el usuario."
+  },
+  {
+    "id": "growth-marketing",
+    "nombre": "Growth Marketing",
+    "categoria": "Marketing Digital",
+    "tipo": "curso",
+    "descripcion": "Estrategias de crecimiento basadas en datos y experimentación."
+  },
+  {
+    "id": "seo",
+    "nombre": "SEO",
+    "categoria": "Marketing Digital",
+    "tipo": "curso",
+    "descripcion": "Optimización para motores de búsqueda."
+  },
+  {
+    "id": "publicidad-redes-avanzado",
+    "nombre": "Publicidad en Redes Avanzado",
+    "categoria": "Marketing Digital",
+    "tipo": "curso",
+    "descripcion": "Campañas de pauta avanzada en redes sociales."
+  },
+  {
+    "id": "community-manager",
+    "nombre": "Community Manager",
+    "categoria": "Marketing Digital",
+    "tipo": "carrera",
+    "descripcion": "Gestión integral de comunidades y marca en redes."
+  },
+  {
+    "id": "carrera-marketing-digital",
+    "nombre": "Carrera de Marketing Digital",
+    "categoria": "Marketing Digital",
+    "tipo": "carrera",
+    "descripcion": "Formación integral en marketing digital."
+  },
+  {
+    "id": "carrera-product-marketing",
+    "nombre": "Carrera de Product Marketing",
+    "categoria": "Producto",
+    "tipo": "carrera",
+    "descripcion": "Estrategia de producto orientada a mercado."
+  },
+  {
+    "id": "carrera-producto",
+    "nombre": "Carrera de Producto",
+    "categoria": "Producto",
+    "tipo": "carrera",
+    "descripcion": "Formación integral en gestión de producto digital."
+  },
+  {
+    "id": "excel-avanzado",
+    "nombre": "Excel Avanzado",
+    "categoria": "Data",
+    "tipo": "curso",
+    "descripcion": "Análisis y modelado de datos con Excel."
+  }
+]
