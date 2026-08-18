@@ -23,6 +23,7 @@ import { useChat } from "@/lib/ai/useChat";
 import type { ChatMode } from "@/lib/ai/client";
 import { generateRoadmap, saveRoadmap } from "@/lib/ai/roadmapClient";
 import { extractPdfText } from "@/lib/pdf/extractPdfText";
+import { saveProfileInput } from "@/lib/profileStore";
 import { RIASEC_LABELS, type RiasecDimension } from "@/lib/riasec/questions";
 
 /**
@@ -154,6 +155,14 @@ export default function Limbo() {
     try {
       const roadmap = await generateRoadmap(transcript, riasecLabels);
       saveRoadmap(roadmap);
+      // Hand off the raw source material (CV text if any, else the
+      // person's own answers) so the platform's CV builder (Plataforma.tsx
+      // -> src/lib/cvParser.ts) has something to extract from — separate
+      // from the roadmap, which only carries the AI-generated course plan.
+      saveProfileInput({
+        cvText: cv.status === "ready" ? cv.text : null,
+        userAnswers: messages.filter((m) => m.role === "user").map((m) => m.content),
+      });
       navigate("/plataforma");
     } catch (err) {
       setRoadmapState("error");
