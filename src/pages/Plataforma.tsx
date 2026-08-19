@@ -1,6 +1,19 @@
-import { Background, Controls, Panel, Position, ReactFlow, type Edge, type Node } from "@xyflow/react";
+import { Background, BackgroundVariant, Panel, Position, ReactFlow, useReactFlow, useViewport, type Edge, type Node } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { AlertCircle, BookOpen, Check, CheckCircle2, ChevronDown, ChevronUp, Circle, Search, X } from "lucide-react";
+import {
+  AlertCircle,
+  BookOpen,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Circle,
+  HelpCircle,
+  Maximize,
+  Minus,
+  Plus as PlusIcon,
+  X,
+} from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { CatalogoView } from "@/components/plataforma/CatalogoView";
@@ -42,6 +55,21 @@ import { nextStatus, useRoadmapProgress, type CourseStatus } from "@/lib/roadmap
  *   real catalog data + the AI's personalized reasoning, plus a demo-only
  *   progress control (src/lib/roadmapProgress.ts).
  *
+ *   React Flow vs. the Figma Make reference's raw pan/zoom: kept React Flow.
+ *   The reference's onMouseDown/onMouseMove/onWheel implementation does the
+ *   same job (pan, zoom-to-cursor) but from scratch — React Flow already
+ *   does that, PLUS everything the branching roadmap actually depends on
+ *   today: edge rendering/pathfinding for the rama_principal/
+ *   ramasComplementarias fork, per-node click → detail panel, and the
+ *   progress-driven node restyling, all already built and verified against
+ *   live Gemini output. Swapping the engine would mean rebuilding all of
+ *   that on top of raw mouse events for a purely visual match with no
+ *   functional gain. Instead, only the VISUAL layer was aligned to the
+ *   reference: <Background variant="lines"> instead of the dot grid
+ *   (matching color/spacing), and a custom pill-shaped bottom toolbar
+ *   (ZoomToolbar) styled like the reference's Frame39 but wired to React
+ *   Flow's own useReactFlow/useViewport hooks instead of hand-rolled state.
+ *
  *   Perfil — its own sub-nav (src/components/plataforma/PerfilView.tsx),
  *   Curriculum first by default:
  *     - Curriculum: auto-built once from whatever /limbo collected (the
@@ -73,6 +101,10 @@ export default function Plataforma() {
   const { getStatus, getCompletedAt, advance } = useRoadmapProgress();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tab, setTab] = useState<PlataformaTab>("plan-carrera");
+  // Lifted out of MapaBody so the nav's search box (only shown for Plan
+  // carrera — see PlataformaLayout's own doc comment) can drive the same
+  // real filter instead of MapaBody owning a second, floating one.
+  const [mapQuery, setMapQuery] = useState("");
 
   // Portfolio state lives here (not in PortfolioView) so it survives
   // switching tabs — see PortfolioView's doc comment for why it's fine to
@@ -112,7 +144,11 @@ export default function Plataforma() {
   }
 
   return (
-    <PlataformaLayout activeTab={tab} onTabChange={setTab}>
+    <PlataformaLayout
+      activeTab={tab}
+      onTabChange={setTab}
+      search={tab === "plan-carrera" ? { value: mapQuery, onChange: setMapQuery } : undefined}
+    >
       {tab === "panel" && <PanelInicioView />}
       {tab === "plan-carrera" && (
         <MapaBody
@@ -122,6 +158,7 @@ export default function Plataforma() {
           selectedId={selectedId}
           setSelectedId={setSelectedId}
           onViewPerfil={onViewPerfil}
+          query={mapQuery}
         />
       )}
       {tab === "catalogo" && <CatalogoView />}
@@ -152,6 +189,7 @@ function MapaBody({
   selectedId,
   setSelectedId,
   onViewPerfil,
+  query,
 }: {
   roadmap: Roadmap;
   getStatus: (id: string) => CourseStatus;
@@ -159,6 +197,8 @@ function MapaBody({
   selectedId: string | null;
   setSelectedId: (id: string | null) => void;
   onViewPerfil: () => void;
+  /** Driven by the nav's search box now (src/components/plataforma/PlataformaLayout.tsx), not a floating box on the canvas. */
+  query: string;
 }) {
   // Recomputed whenever a status changes (getStatus's identity changes with
   // it — see useRoadmapProgress) so completed/in-progress nodes repaint.
@@ -167,11 +207,9 @@ function MapaBody({
     [roadmap, getStatus, onViewPerfil],
   );
 
-  const [query, setQuery] = useState("");
-  // Real filter, not decorative: matches the boceto's floating "Buscar
-  // curso" box. Dims (doesn't remove) non-matching course nodes so the
-  // chain/edges stay legible — the trigger node is exempt, it's not a
-  // course to search for.
+  // Real filter, not decorative. Dims (doesn't remove) non-matching course
+  // nodes so the chain/edges stay legible — the trigger node is exempt,
+  // it's not a course to search for.
   const nodes = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return builtNodes;
@@ -193,23 +231,20 @@ function MapaBody({
         fitView
         fitViewOptions={{ padding: 0.3 }}
         proOptions={{ hideAttribution: true }}
+        minZoom={0.2}
+        maxZoom={3}
         onNodeClick={(_, node) => {
           if (node.id === "trigger") return; // CAMBIO 4: panel excludes the trigger node
           setSelectedId(node.id);
         }}
       >
-        <Background gap={20} />
-        <Controls showInteractive={false} />
-        <Panel position="top-right">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Buscar curso"
-              className="w-48 rounded-pill border border-border-soft bg-white py-2 pl-9 pr-3 font-['Inter:Regular',sans-serif] text-sm text-ink shadow-[0_2px_10px_rgba(0,0,0,0.06)] outline-none placeholder:text-ink-muted"
-            />
-          </div>
+        {/* Line grid (not dots) with the reference's exact color/spacing,
+            still React Flow's own pan/zoom underneath — see the module doc
+            comment for why React Flow was kept over the reference's raw
+            mouse-event pan/zoom implementation. */}
+        <Background variant={BackgroundVariant.Lines} gap={40} color="#E2E2E2" />
+        <Panel position="bottom-center">
+          <ZoomToolbar />
         </Panel>
       </ReactFlow>
 
@@ -222,6 +257,58 @@ function MapaBody({
         />
       )}
     </div>
+  );
+}
+
+// Pill-shaped bottom toolbar matching the reference's Frame39 — but wired
+// to React Flow's own zoom/pan engine (useReactFlow/useViewport) instead of
+// reimplementing pan/zoom by hand. See the module doc comment for the
+// React-Flow-vs-reference-pan/zoom decision.
+function ZoomToolbar() {
+  const { zoomIn, zoomOut, fitView } = useReactFlow();
+  const { zoom } = useViewport();
+
+  return (
+    <div className="flex items-center gap-1 rounded-pill border border-border-soft bg-white p-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.1)]">
+      <ToolbarButton onClick={() => zoomOut({ duration: 150 })} ariaLabel="Alejar">
+        <Minus className="h-4 w-4" />
+      </ToolbarButton>
+      <span className="w-11 text-center font-['Inter:Regular',sans-serif] text-xs text-ink-muted">
+        {Math.round(zoom * 100)}%
+      </span>
+      <ToolbarButton onClick={() => zoomIn({ duration: 150 })} ariaLabel="Acercar">
+        <PlusIcon className="h-4 w-4" />
+      </ToolbarButton>
+      <div className="mx-1 h-6 w-px bg-border-soft" />
+      <ToolbarButton onClick={() => fitView({ padding: 0.3, duration: 300 })} ariaLabel="Ajustar a la pantalla">
+        <Maximize className="h-4 w-4" />
+      </ToolbarButton>
+      <div className="mx-1 h-6 w-px bg-border-soft" />
+      <ToolbarButton onClick={() => {}} ariaLabel="Ayuda">
+        <HelpCircle className="h-4 w-4" />
+      </ToolbarButton>
+    </div>
+  );
+}
+
+function ToolbarButton({
+  children,
+  onClick,
+  ariaLabel,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  ariaLabel: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={ariaLabel}
+      className="flex h-9 w-9 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-ink/5 hover:text-ink"
+    >
+      {children}
+    </button>
   );
 }
 

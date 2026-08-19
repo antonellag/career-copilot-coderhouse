@@ -52,15 +52,15 @@ export function PerfilView({
 
   return (
     <div className="flex flex-1 overflow-hidden">
-      <aside className="hidden w-52 shrink-0 border-r border-border-soft bg-white px-3 py-6 lg:block">
+      <aside className="hidden w-56 shrink-0 border-r border-border-soft bg-white px-4 py-6 lg:block">
         <nav className="flex flex-col gap-1">
           {SECTIONS.map((s) => (
             <button
               key={s.id}
               type="button"
               onClick={() => setSection(s.id)}
-              className={`rounded-lg px-3 py-2 text-left font-['Inter:Regular',sans-serif] text-sm transition-colors ${
-                section === s.id ? "bg-ink/5 font-medium text-ink" : "text-ink-muted hover:text-ink"
+              className={`rounded-pill px-6 py-3 text-left font-['Inter:Regular',sans-serif] text-sm transition-colors ${
+                section === s.id ? "bg-brand-hover/20 font-medium text-ink" : "text-ink-muted hover:bg-ink/5 hover:text-ink"
               }`}
             >
               {s.label}

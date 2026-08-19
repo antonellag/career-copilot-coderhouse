@@ -11,13 +11,20 @@ import { CATALOG, categoriesFor, type CatalogCourse, type CourseType } from "@/l
  * no real sales/publish-date/difficulty data for these 57 courses, and
  * filtering by something invented would just show fake results. Clicking
  * them is a no-op; the visible list never changes because of them.
+ *
+ * Visual structure (sidebar shape, filter pills, card layout) aligned to
+ * the Figma Make reference's CatalogDesktop — its per-course price/date/
+ * discount numbers were placeholder data ("+15 fechas más" etc.) and are
+ * deliberately NOT copied; CourseCard only renders those fields when
+ * they're actually present on a course (none are yet), same rule as
+ * everywhere else in this app.
  */
 
-const SECTIONS: { id: CourseType; label: string }[] = [
-  { id: "curso", label: "Cursos" },
-  { id: "carrera", label: "Carreras" },
-  { id: "diplomatura", label: "Diplomaturas" },
-  { id: "on-demand", label: "Cursos on demand" },
+const SECTIONS: { id: CourseType; label: string; title: string; blurb: string }[] = [
+  { id: "curso", label: "Cursos", title: "Cursos", blurb: "Aprendé en vivo con docentes de la industria y desarrollá las habilidades que el mercado laboral demanda." },
+  { id: "carrera", label: "Carreras", title: "Carreras", blurb: "Formaciones completas, de punta a punta, para especializarte en un rol específico." },
+  { id: "diplomatura", label: "Diplomaturas", title: "Diplomaturas", blurb: "Programas intensivos de profundización en un área concreta." },
+  { id: "on-demand", label: "Cursos on demand", title: "Cursos on demand", blurb: "Contenido para avanzar a tu propio ritmo, organizado por categoría." },
 ];
 
 export function CatalogoView() {
@@ -30,6 +37,7 @@ export function CatalogoView() {
   const [nuevos, setNuevos] = useState(false);
   const [nivel, setNivel] = useState("Todos los niveles");
 
+  const activeSection = SECTIONS.find((s) => s.id === section)!;
   const categoriaOptions = useMemo(() => ["Todas", ...categoriesFor(section)], [section]);
 
   // Switching sections can leave a categoria selected that doesn't exist
@@ -51,16 +59,16 @@ export function CatalogoView() {
 
   return (
     <div className="flex flex-1 overflow-hidden">
-      {/* Sub-navegación lateral — the 4 sections, mapped 1:1 to course-catalog.json's "tipo" field. */}
-      <aside className="hidden w-52 shrink-0 border-r border-border-soft bg-white px-3 py-6 lg:block">
+      {/* Sub-navegación lateral — the 4 sections, mapped 1:1 to course-catalog.json's "tipo" field. Pill-shaped rows per the reference. */}
+      <aside className="hidden w-56 shrink-0 border-r border-border-soft bg-white px-4 py-6 lg:block">
         <nav className="flex flex-col gap-1">
           {SECTIONS.map((s) => (
             <button
               key={s.id}
               type="button"
               onClick={() => setSection(s.id)}
-              className={`rounded-lg px-3 py-2 text-left font-['Inter:Regular',sans-serif] text-sm transition-colors ${
-                section === s.id ? "bg-ink/5 font-medium text-ink" : "text-ink-muted hover:text-ink"
+              className={`rounded-pill px-6 py-3 text-left font-['Inter:Regular',sans-serif] text-sm transition-colors ${
+                section === s.id ? "bg-brand-hover/20 font-medium text-ink" : "text-ink-muted hover:bg-ink/5 hover:text-ink"
               }`}
             >
               {s.label}
@@ -71,10 +79,8 @@ export function CatalogoView() {
 
       <div className="flex-1 overflow-y-auto px-6 py-8 sm:px-8">
         <div className="mx-auto max-w-5xl">
-          <h1 className="mb-1 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-2xl text-ink">Catálogo</h1>
-          <p className="mb-6 font-['Inter:Regular',sans-serif] text-sm text-ink-muted">
-            Todos los cursos, carreras y diplomaturas de Coderhouse.
-          </p>
+          <h1 className="mb-1.5 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-2xl text-ink">{activeSection.title}</h1>
+          <p className="mb-6 max-w-2xl font-['Inter:Regular',sans-serif] text-sm text-ink-muted">{activeSection.blurb}</p>
 
           {/* Mobile section picker — the sidebar above is lg-only. */}
           <div className="mb-4 flex gap-1 overflow-x-auto lg:hidden">
@@ -93,21 +99,21 @@ export function CatalogoView() {
           </div>
 
           {/* Filter bar */}
-          <div className="mb-6 flex flex-wrap items-center gap-2">
+          <div className="mb-6 flex flex-wrap items-center gap-2.5">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Buscar curso"
-                className="w-56 rounded-pill border border-border-soft bg-white py-2 pl-9 pr-3 font-['Inter:Regular',sans-serif] text-sm text-ink outline-none placeholder:text-ink-muted"
+                className="w-56 rounded-pill border border-border-soft bg-white py-3 pl-10 pr-4 font-['Inter:Regular',sans-serif] text-sm text-ink outline-none placeholder:text-ink-muted"
               />
             </div>
 
             <select
               value={categoria}
               onChange={(e) => setCategoria(e.target.value)}
-              className="rounded-pill border border-border-soft bg-white px-3 py-2 font-['Inter:Regular',sans-serif] text-sm text-ink outline-none"
+              className="rounded-pill border border-border-soft bg-white px-5 py-3 font-['Inter:Regular',sans-serif] text-sm text-ink outline-none"
             >
               {categoriaOptions.map((c) => (
                 <option key={c} value={c}>
@@ -120,7 +126,7 @@ export function CatalogoView() {
             <select
               value={nivel}
               onChange={(e) => setNivel(e.target.value)}
-              className="rounded-pill border border-border-soft bg-white px-3 py-2 font-['Inter:Regular',sans-serif] text-sm text-ink-muted outline-none"
+              className="rounded-pill border border-border-soft bg-white px-5 py-3 font-['Inter:Regular',sans-serif] text-sm text-ink-muted outline-none"
             >
               <option>Todos los niveles</option>
               <option>Principiante</option>
@@ -130,7 +136,7 @@ export function CatalogoView() {
             <button
               type="button"
               onClick={() => setMasVendidos((v) => !v)}
-              className={`rounded-pill border border-border-soft px-3 py-2 font-['Inter:Regular',sans-serif] text-sm transition-colors ${
+              className={`rounded-pill border border-border-soft px-5 py-3 font-['Inter:Regular',sans-serif] text-sm transition-colors ${
                 masVendidos ? "bg-ink/5 text-ink" : "bg-white text-ink-muted"
               }`}
             >
@@ -139,7 +145,7 @@ export function CatalogoView() {
             <button
               type="button"
               onClick={() => setNuevos((v) => !v)}
-              className={`rounded-pill border border-border-soft px-3 py-2 font-['Inter:Regular',sans-serif] text-sm transition-colors ${
+              className={`rounded-pill border border-border-soft px-5 py-3 font-['Inter:Regular',sans-serif] text-sm transition-colors ${
                 nuevos ? "bg-ink/5 text-ink" : "bg-white text-ink-muted"
               }`}
             >
@@ -167,57 +173,87 @@ export function CatalogoView() {
   );
 }
 
+// Category-tinted header block, same palette used for the Plan carrera map
+// nodes (src/pages/Plataforma.tsx's CATEGORY_COLORS) so the two screens
+// read as one system. No thumbnail image, discount badge, date, schedule,
+// or price render unless the course actually has that field — none do yet
+// in data/course-catalog.json, so those rows just don't appear rather than
+// showing invented numbers like the Figma reference's example data did.
+const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
+  "Inteligencia Artificial": { bg: "#ffedd5", text: "#ff7d2a" },
+  "Programación": { bg: "#dcfce7", text: "#16a34a" },
+  "Diseño": { bg: "#fce7f3", text: "#be185d" },
+  Data: { bg: "#dbeafe", text: "#2563eb" },
+  "Marketing Digital": { bg: "#fef3c7", text: "#b45309" },
+  Negocios: { bg: "#e0e7ff", text: "#4338ca" },
+  Producto: { bg: "#ffe4e6", text: "#be123c" },
+  "Softs Skills": { bg: "#f3f4f6", text: "#374151" },
+};
+
+function categoryColor(categoria: string): { bg: string; text: string } {
+  return CATEGORY_COLORS[categoria] ?? { bg: "#f3f4f6", text: "#374151" };
+}
+
 function CourseCard({ course }: { course: CatalogCourse }) {
   const hasPrice = course.precioFinal !== undefined;
+  const catColor = categoryColor(course.categoria);
   return (
-    <div className="flex flex-col rounded-2xl border border-border-soft bg-white p-5 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
-      <div className="mb-3 flex flex-wrap items-center gap-1.5">
-        <span className="rounded-pill bg-ink/5 px-2.5 py-1 font-['Inter:Regular',sans-serif] text-[11px] text-ink-muted">
+    <div
+      className="flex flex-col overflow-hidden rounded-[20px] border border-border-soft bg-white"
+      style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}
+    >
+      <div className="relative flex flex-col gap-2 p-5" style={{ background: catColor.bg, minHeight: 108 }}>
+        <span
+          className="font-['Inter:SemiBold',sans-serif] text-xs font-semibold"
+          style={{ color: catColor.text }}
+        >
           {course.categoria}
         </span>
+        <p className="max-w-[75%] font-['Inter:Bold',sans-serif] text-lg font-bold leading-tight text-ink">
+          {course.nombre}
+        </p>
         {course.descuento && (
-          <span className="rounded-pill bg-brand-hover px-2.5 py-1 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-[11px] text-white">
+          <span className="absolute right-3 top-3 rounded-pill bg-brand-hover px-2 py-1 font-['Inter:Bold',sans-serif] text-[11px] font-bold text-white">
             {course.descuento}
           </span>
         )}
       </div>
 
-      <h3 className="mb-2 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-base leading-snug text-ink">
-        {course.nombre}
-      </h3>
-
-      {(course.proximaFecha || course.horario) && (
-        <p className="mb-1 font-['Inter:Regular',sans-serif] text-xs text-ink-muted">
-          {course.proximaFecha}
-          {course.proximaFecha && course.horario ? " · " : ""}
-          {course.horario}
-        </p>
-      )}
-      {course.proximaFecha && (
-        <p className="mb-3 font-['Inter:Regular',sans-serif] text-xs text-ink-muted">más fechas disponibles</p>
-      )}
-
-      <div className="mt-auto flex items-center justify-between gap-3 pt-3">
-        {hasPrice ? (
-          <div className="flex items-baseline gap-1.5">
-            {course.precioOriginal !== undefined && (
-              <span className="font-['Inter:Regular',sans-serif] text-xs text-ink-muted line-through">
-                {formatPrice(course.precioOriginal)}
+      <div className="flex flex-col gap-3 p-5">
+        {(course.proximaFecha || course.horario) && (
+          <div className="flex flex-col gap-0.5 font-['Inter:Regular',sans-serif] text-xs text-ink-muted">
+            {course.proximaFecha && (
+              <span>
+                Próxima fecha: {course.proximaFecha}
+                {course.proximaFecha && " · más fechas disponibles"}
               </span>
             )}
-            <span className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-sm text-ink">
-              {formatPrice(course.precioFinal!)}
-            </span>
+            {course.horario && <span>{course.horario}</span>}
           </div>
-        ) : (
-          <span className="font-['Inter:Regular',sans-serif] text-xs text-ink-muted">{tipoLabel(course.tipo)}</span>
         )}
-        <button
-          type="button"
-          className="shrink-0 rounded-pill bg-brand-hover px-4 py-1.5 font-['Plus_Jakarta_Sans:Medium',sans-serif] text-xs text-white transition-transform hover:scale-105"
-        >
-          Comprar
-        </button>
+
+        <div className="mt-auto flex items-center justify-between gap-3 pt-1">
+          {hasPrice ? (
+            <div className="flex items-baseline gap-1.5">
+              {course.precioOriginal !== undefined && (
+                <span className="font-['Inter:Regular',sans-serif] text-xs text-ink-muted line-through">
+                  {formatPrice(course.precioOriginal)}
+                </span>
+              )}
+              <span className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-sm text-ink">
+                {formatPrice(course.precioFinal!)}
+              </span>
+            </div>
+          ) : (
+            <span className="font-['Inter:Regular',sans-serif] text-xs text-ink-muted">{tipoLabel(course.tipo)}</span>
+          )}
+          <button
+            type="button"
+            className="shrink-0 rounded-[10px] border border-border-soft bg-white px-4 py-2 font-['Inter:SemiBold',sans-serif] text-xs font-semibold text-ink transition-colors hover:bg-cream-soft"
+          >
+            Comprar
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -245,7 +281,7 @@ function OnDemandList({ courses }: { courses: CatalogCourse[] }) {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       {grouped.map(([categoria, items]) => (
-        <div key={categoria} className="rounded-2xl border border-border-soft bg-white p-5 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
+        <div key={categoria} className="rounded-[20px] border border-border-soft bg-white p-5 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
           <h3 className="mb-3 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-sm text-ink">{categoria}</h3>
           <ol className="space-y-1.5">
             {items.map((c, i) => (
