@@ -5,11 +5,13 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
+  HelpCircle,
   Loader2,
+  LogOut,
   Map,
+  MoreVertical,
   Plus,
   Send,
-  Settings2,
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -508,27 +510,75 @@ function LimboShell({ phase, children }: { phase: LimboPhase; children: React.Re
             <CoderhouseLogo className="h-4 w-auto" />
           </Link>
           <div className="ml-auto flex items-center gap-3">
+            {/* Skips straight to the student platform — this is a demo
+                shortcut, not a "skip just the RIASEC test" action, so it
+                goes to /plataforma directly instead of home. */}
             <Link
-              to="/"
+              to="/plataforma"
               className="rounded-pill bg-white px-4 py-2 font-['Inter:Regular',sans-serif] text-xs text-ink-muted shadow-[0_1px_4px_rgba(0,0,0,0.06)] transition-colors hover:text-ink sm:text-sm"
             >
               Omitir test
             </Link>
-            <button
-              type="button"
-              aria-label="Configuración"
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-ink-muted shadow-[0_1px_4px_rgba(0,0,0,0.06)]"
-            >
-              <Settings2 className="h-4 w-4" />
-            </button>
-            <div className="h-9 w-9 overflow-hidden rounded-full border border-border-soft bg-white shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
-              <img src="/community/avatar-1.png" alt="" className="h-full w-full object-cover" />
-            </div>
+            {/* No profile button here — /limbo is pre-login, nobody's been
+                identified yet (that only happens once the roadmap hands off
+                to /plataforma). Just a 3-dot menu: Soporte / Salir. */}
+            <LimboOverflowMenu />
           </div>
         </header>
 
         {children}
       </div>
+    </div>
+  );
+}
+
+// 3-dot overflow menu replacing the old lone "Configuración" (filter-style)
+// icon button — Soporte is a placeholder (no support flow exists yet),
+// Salir takes you back to the main site, same destination the old
+// "Omitir test" link used to go to before it was repointed at /plataforma.
+function LimboOverflowMenu() {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [open]);
+
+  return (
+    <div ref={menuRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-label="Más opciones"
+        aria-expanded={open}
+        className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-ink-muted shadow-[0_1px_4px_rgba(0,0,0,0.06)] transition-colors hover:text-ink"
+      >
+        <MoreVertical className="h-4 w-4" />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-11 z-10 w-44 overflow-hidden rounded-2xl border border-border-soft bg-white py-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.12)]">
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left font-['Inter:Regular',sans-serif] text-sm text-ink transition-colors hover:bg-ink/5"
+          >
+            <HelpCircle className="h-4 w-4 text-ink-muted" />
+            Soporte
+          </button>
+          <Link
+            to="/"
+            className="flex items-center gap-2.5 px-4 py-2.5 font-['Inter:Regular',sans-serif] text-sm text-ink transition-colors hover:bg-ink/5"
+          >
+            <LogOut className="h-4 w-4 text-ink-muted" />
+            Salir
+          </Link>
+        </div>
+      )}
     </div>
   );
 }
