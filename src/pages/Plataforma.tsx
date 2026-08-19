@@ -338,6 +338,9 @@ const TRIGGER_NODE_STYLE: React.CSSProperties = {
   fontFamily: "Inter, sans-serif",
   width: 320,
   boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
+  // ReactFlow's default node stylesheet (.react-flow__node-default) sets
+  // text-align: center — overriding it here, not fighting it per element.
+  textAlign: "left",
 };
 
 type TriggerSectionKey = "experiencia" | "habilidades" | "plan" | "estrategia";
@@ -372,8 +375,13 @@ function TriggerCard({
       />
 
       <div className="px-4 pb-4">
-        <div className="-mt-7 mb-3 flex items-end justify-between gap-2">
-          <div className="flex items-center gap-2.5">
+        <div className="-mt-6 mb-3 flex items-end justify-between gap-2">
+          {/* items-end (not items-center): only the avatar is tall enough
+              to overlap the banner above — the name/role text has to stay
+              anchored to the bottom of this row, clear of the banner,
+              instead of being vertically centered against the avatar and
+              riding up into it. */}
+          <div className="flex items-end gap-2.5">
             <span
               className="h-12 w-12 shrink-0 rounded-full border-[3px] border-white shadow-[0_2px_8px_rgba(0,0,0,0.15)]"
               style={{ background: "radial-gradient(circle at 30% 30%, #4c1d95, #0f0a1e 70%)" }}
@@ -464,6 +472,7 @@ function courseNodeStyle(esTransversal: boolean, status: CourseStatus): React.CS
     width: 220,
     cursor: "pointer",
     boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
+    textAlign: "left", // same ReactFlow default-node override as the trigger card
   };
 }
 
