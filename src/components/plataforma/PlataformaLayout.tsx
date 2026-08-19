@@ -1,4 +1,4 @@
-import { Bell, Gift, MessageSquareText, Rocket, Search, UserRound } from "lucide-react";
+import { Bell, Gift, MessageSquareText, Rocket, UserRound } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { CoderhouseLogo } from "@/components/CoderhouseLogo";
@@ -16,14 +16,13 @@ import { CoderhouseLogo } from "@/components/CoderhouseLogo";
  *   profile.
  *   Sub-nav row — the 5 sections as plain TEXT links (bold + orange when
  *   active, not pill buttons — that's what the reference actually does),
- *   an optional search box in the middle (only Plan carrera wires one in,
- *   since that's the only screen with a real filter behind it — see
- *   src/pages/Plataforma.tsx), "Feedback" and "Referí y ganá" on the right.
+ *   "Feedback" and "Referí y ganá" on the right. The "Buscar curso" box
+ *   is NOT here — it's fixed over the Plan carrera canvas itself (see
+ *   src/pages/Plataforma.tsx's MapaBody), not embedded in this shared shell.
  *
- * Purely a shell: it owns no data, just `activeTab`/`onTabChange` (+ the
- * optional search props) and whatever the active tab renders as
- * `children` — src/pages/Plataforma.tsx still owns the roadmap/portfolio/
- * etc. state and decides what to render.
+ * Purely a shell: it owns no data, just `activeTab`/`onTabChange` and
+ * whatever the active tab renders as `children` — src/pages/Plataforma.tsx
+ * still owns the roadmap/portfolio/etc. state and decides what to render.
  */
 
 export type PlataformaTab = "panel" | "plan-carrera" | "catalogo" | "perfil" | "novedades";
@@ -39,14 +38,10 @@ const TABS: { id: PlataformaTab; label: string; hideBelow?: string }[] = [
 export function PlataformaLayout({
   activeTab,
   onTabChange,
-  search,
   children,
 }: {
   activeTab: PlataformaTab;
   onTabChange: (tab: PlataformaTab) => void;
-  /** Only Plan carrera passes this — the reference shows a search box in the
-   *  nav, but only that screen has a real filter behind it. */
-  search?: { value: string; onChange: (v: string) => void };
   children: ReactNode;
 }) {
   return (
@@ -105,18 +100,6 @@ export function PlataformaLayout({
             );
           })}
         </nav>
-
-        {search && (
-          <div className="relative hidden md:block">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
-            <input
-              value={search.value}
-              onChange={(e) => search.onChange(e.target.value)}
-              placeholder="Buscar curso"
-              className="w-56 rounded-pill border border-border-soft bg-white py-3 pl-10 pr-4 font-['Inter:Regular',sans-serif] text-sm text-ink outline-none placeholder:text-ink-muted"
-            />
-          </div>
-        )}
 
         <div className="ml-auto flex items-center gap-2">
           <button

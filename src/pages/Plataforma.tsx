@@ -1,4 +1,16 @@
-import { Background, BackgroundVariant, Panel, Position, ReactFlow, useReactFlow, useViewport, type Edge, type Node } from "@xyflow/react";
+import {
+  Background,
+  BackgroundVariant,
+  MarkerType,
+  MiniMap,
+  Panel,
+  Position,
+  ReactFlow,
+  useReactFlow,
+  useViewport,
+  type Edge,
+  type Node,
+} from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import {
   AlertCircle,
@@ -8,10 +20,16 @@ import {
   ChevronDown,
   ChevronUp,
   Circle,
+  Hand,
   HelpCircle,
+  Map as MapIcon,
   Maximize,
+  MousePointer2,
   Minus,
   Plus as PlusIcon,
+  Redo2,
+  Search,
+  Undo2,
   X,
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
@@ -101,10 +119,6 @@ export default function Plataforma() {
   const { getStatus, getCompletedAt, advance } = useRoadmapProgress();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tab, setTab] = useState<PlataformaTab>("plan-carrera");
-  // Lifted out of MapaBody so the nav's search box (only shown for Plan
-  // carrera — see PlataformaLayout's own doc comment) can drive the same
-  // real filter instead of MapaBody owning a second, floating one.
-  const [mapQuery, setMapQuery] = useState("");
 
   // Portfolio state lives here (not in PortfolioView) so it survives
   // switching tabs — see PortfolioView's doc comment for why it's fine to
@@ -144,11 +158,7 @@ export default function Plataforma() {
   }
 
   return (
-    <PlataformaLayout
-      activeTab={tab}
-      onTabChange={setTab}
-      search={tab === "plan-carrera" ? { value: mapQuery, onChange: setMapQuery } : undefined}
-    >
+    <PlataformaLayout activeTab={tab} onTabChange={setTab}>
       {tab === "panel" && <PanelInicioView />}
       {tab === "plan-carrera" && (
         <MapaBody
@@ -158,7 +168,6 @@ export default function Plataforma() {
           selectedId={selectedId}
           setSelectedId={setSelectedId}
           onViewPerfil={onViewPerfil}
-          query={mapQuery}
         />
       )}
       {tab === "catalogo" && <CatalogoView />}
@@ -189,7 +198,6 @@ function MapaBody({
   selectedId,
   setSelectedId,
   onViewPerfil,
-  query,
 }: {
   roadmap: Roadmap;
   getStatus: (id: string) => CourseStatus;
@@ -197,9 +205,11 @@ function MapaBody({
   selectedId: string | null;
   setSelectedId: (id: string | null) => void;
   onViewPerfil: () => void;
-  /** Driven by the nav's search box now (src/components/plataforma/PlataformaLayout.tsx), not a floating box on the canvas. */
-  query: string;
 }) {
+  // Fixed over the canvas itself (top-right), not embedded in the shared
+  // nav — see src/components/plataforma/PlataformaLayout.tsx's doc comment.
+  const [query, setQuery] = useState("");
+
   // Recomputed whenever a status changes (getStatus's identity changes with
   // it — see useRoadmapProgress) so completed/in-progress nodes repaint.
   const { nodes: builtNodes, edges } = useMemo(
@@ -223,6 +233,13 @@ function MapaBody({
 
   const selectedNode = selectedId ? roadmap.nodos.find((n) => n.id === selectedId) : null;
 
+  // "Selección" (default click/drag-to-marquee) vs. "Mano" (drag-to-pan) —
+  // matches Frame34's two-button toggle in the reference, and it's wired to
+  // real ReactFlow behavior (panOnDrag/selectionOnDrag), not just a visual
+  // toggle. Minimap visibility (the "map" icon in Frame31) is also real.
+  const [tool, setTool] = useState<"select" | "hand">("hand");
+  const [showMinimap, setShowMinimap] = useState(false);
+
   return (
     <div className="relative flex-1">
       <ReactFlow
@@ -233,6 +250,8 @@ function MapaBody({
         proOptions={{ hideAttribution: true }}
         minZoom={0.2}
         maxZoom={3}
+        panOnDrag={tool === "hand"}
+        selectionOnDrag={tool === "select"}
         onNodeClick={(_, node) => {
           if (node.id === "trigger") return; // CAMBIO 4: panel excludes the trigger node
           setSelectedId(node.id);
@@ -243,8 +262,27 @@ function MapaBody({
             comment for why React Flow was kept over the reference's raw
             mouse-event pan/zoom implementation. */}
         <Background variant={BackgroundVariant.Lines} gap={40} color="#E2E2E2" />
+        <Panel position="top-right">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Buscar curso"
+              className="w-56 rounded-pill border border-border-soft bg-white py-3 pl-10 pr-4 font-['Inter:Regular',sans-serif] text-sm text-ink shadow-[0_4px_16px_rgba(0,0,0,0.06)] outline-none placeholder:text-ink-muted"
+            />
+          </div>
+        </Panel>
+        {showMinimap && (
+          <MiniMap
+            pannable
+            zoomable
+            className="!rounded-2xl !border !border-border-soft"
+            nodeColor={() => "#f3d9c8"}
+          />
+        )}
         <Panel position="bottom-center">
-          <ZoomToolbar />
+          <BottomToolbar tool={tool} setTool={setTool} showMinimap={showMinimap} setShowMinimap={setShowMinimap} />
         </Panel>
       </ReactFlow>
 
@@ -260,33 +298,80 @@ function MapaBody({
   );
 }
 
-// Pill-shaped bottom toolbar matching the reference's Frame39 — but wired
-// to React Flow's own zoom/pan engine (useReactFlow/useViewport) instead of
-// reimplementing pan/zoom by hand. See the module doc comment for the
-// React-Flow-vs-reference-pan/zoom decision.
-function ZoomToolbar() {
+// Four separate pill/circle groups, matching the reference's Frame31
+// (zoom + view controls) / Frame34 (selection-tool toggle) / Frame36
+// (undo/redo) / Frame38 (help) laid out side by side by Frame39 — not one
+// merged pill. Wired to React Flow's own zoom/pan engine
+// (useReactFlow/useViewport) plus the real tool/minimap toggles above;
+// undo/redo stay decorative since there's no edit history to walk.
+function BottomToolbar({
+  tool,
+  setTool,
+  showMinimap,
+  setShowMinimap,
+}: {
+  tool: "select" | "hand";
+  setTool: (t: "select" | "hand") => void;
+  showMinimap: boolean;
+  setShowMinimap: (v: boolean) => void;
+}) {
   const { zoomIn, zoomOut, fitView } = useReactFlow();
   const { zoom } = useViewport();
 
   return (
-    <div className="flex items-center gap-1 rounded-pill border border-border-soft bg-white p-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.1)]">
-      <ToolbarButton onClick={() => zoomOut({ duration: 150 })} ariaLabel="Alejar">
-        <Minus className="h-4 w-4" />
-      </ToolbarButton>
-      <span className="w-11 text-center font-['Inter:Regular',sans-serif] text-xs text-ink-muted">
-        {Math.round(zoom * 100)}%
-      </span>
-      <ToolbarButton onClick={() => zoomIn({ duration: 150 })} ariaLabel="Acercar">
-        <PlusIcon className="h-4 w-4" />
-      </ToolbarButton>
-      <div className="mx-1 h-6 w-px bg-border-soft" />
-      <ToolbarButton onClick={() => fitView({ padding: 0.3, duration: 300 })} ariaLabel="Ajustar a la pantalla">
-        <Maximize className="h-4 w-4" />
-      </ToolbarButton>
-      <div className="mx-1 h-6 w-px bg-border-soft" />
-      <ToolbarButton onClick={() => {}} ariaLabel="Ayuda">
+    <div className="flex items-center gap-3">
+      {/* Frame31 — zoom controls + view toggles */}
+      <div className="flex items-center gap-1 rounded-pill border border-border-soft bg-white p-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.1)]">
+        <ToolbarButton onClick={() => zoomOut({ duration: 150 })} ariaLabel="Alejar">
+          <Minus className="h-4 w-4" />
+        </ToolbarButton>
+        <span className="w-11 text-center font-['Inter:Regular',sans-serif] text-xs text-ink-muted">
+          {Math.round(zoom * 100)}%
+        </span>
+        <ToolbarButton onClick={() => zoomIn({ duration: 150 })} ariaLabel="Acercar">
+          <PlusIcon className="h-4 w-4" />
+        </ToolbarButton>
+        <div className="mx-1 h-6 w-px bg-border-soft" />
+        <ToolbarButton
+          onClick={() => setShowMinimap(!showMinimap)}
+          ariaLabel="Mostrar minimapa"
+          active={showMinimap}
+        >
+          <MapIcon className="h-4 w-4" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => fitView({ padding: 0.3, duration: 300 })} ariaLabel="Ajustar a la pantalla">
+          <Maximize className="h-4 w-4" />
+        </ToolbarButton>
+      </div>
+
+      {/* Frame34 — selection-tool toggle (real: panOnDrag/selectionOnDrag) */}
+      <div className="flex items-center gap-1 rounded-pill border border-border-soft bg-white p-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.1)]">
+        <ToolbarButton onClick={() => setTool("select")} ariaLabel="Herramienta de selección" active={tool === "select"}>
+          <MousePointer2 className="h-4 w-4" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => setTool("hand")} ariaLabel="Herramienta de mano" active={tool === "hand"}>
+          <Hand className="h-4 w-4" />
+        </ToolbarButton>
+      </div>
+
+      {/* Frame36 — undo/redo, decorative (no edit history exists yet) */}
+      <div className="flex items-center gap-1 rounded-pill border border-border-soft bg-white p-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.1)]">
+        <ToolbarButton onClick={() => {}} ariaLabel="Deshacer">
+          <Undo2 className="h-4 w-4" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => {}} ariaLabel="Rehacer">
+          <Redo2 className="h-4 w-4" />
+        </ToolbarButton>
+      </div>
+
+      {/* Frame38 — help, its own standalone circle */}
+      <button
+        type="button"
+        aria-label="Ayuda"
+        className="flex h-[52px] w-[52px] items-center justify-center rounded-full border border-border-soft bg-white text-ink-muted shadow-[0_8px_24px_rgba(0,0,0,0.1)] transition-colors hover:bg-ink/5 hover:text-ink"
+      >
         <HelpCircle className="h-4 w-4" />
-      </ToolbarButton>
+      </button>
     </div>
   );
 }
@@ -295,17 +380,21 @@ function ToolbarButton({
   children,
   onClick,
   ariaLabel,
+  active,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   ariaLabel: string;
+  active?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label={ariaLabel}
-      className="flex h-9 w-9 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-ink/5 hover:text-ink"
+      className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors ${
+        active ? "bg-brand-hover text-white" : "text-ink-muted hover:bg-ink/5 hover:text-ink"
+      }`}
     >
       {children}
     </button>
@@ -467,33 +556,24 @@ function TriggerCard({
       />
 
       <div className="px-4 pb-4">
-        <div className="-mt-6 mb-3 flex items-end justify-between gap-2">
-          {/* items-end (not items-center): only the avatar is tall enough
-              to overlap the banner above — the name/role text has to stay
-              anchored to the bottom of this row, clear of the banner,
-              instead of being vertically centered against the avatar and
-              riding up into it. */}
-          <div className="flex items-end gap-2.5">
-            <span
-              className="h-12 w-12 shrink-0 rounded-full border-[3px] border-white shadow-[0_2px_8px_rgba(0,0,0,0.15)]"
-              style={{ background: "radial-gradient(circle at 30% 30%, #4c1d95, #0f0a1e 70%)" }}
-            />
-            <div>
-              <p className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-sm text-ink">
-                {cv.nombre ?? "Tu perfil"}
-              </p>
-              {currentRole && (
-                <p className="font-['Inter:Regular',sans-serif] text-xs text-ink-muted">{currentRole}</p>
-              )}
-            </div>
+        {/* items-end (not items-center): only the avatar is tall enough
+            to overlap the banner above — the name/role text has to stay
+            anchored to the bottom of this row, clear of the banner,
+            instead of being vertically centered against the avatar and
+            riding up into it. */}
+        <div className="-mt-6 mb-3 flex items-end gap-2.5">
+          <span
+            className="h-12 w-12 shrink-0 rounded-full border-[3px] border-white shadow-[0_2px_8px_rgba(0,0,0,0.15)]"
+            style={{ background: "radial-gradient(circle at 30% 30%, #4c1d95, #0f0a1e 70%)" }}
+          />
+          <div>
+            <p className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-sm text-ink">
+              {cv.nombre ?? "Tu perfil"}
+            </p>
+            {currentRole && (
+              <p className="font-['Inter:Regular',sans-serif] text-xs text-ink-muted">{currentRole}</p>
+            )}
           </div>
-          <button
-            type="button"
-            onClick={onViewPerfil}
-            className="shrink-0 rounded-pill bg-brand-hover/15 px-3 py-1.5 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-xs text-brand-hover transition-colors hover:bg-brand-hover/25"
-          >
-            Ver perfil
-          </button>
         </div>
 
         <div className="flex flex-col gap-2">
@@ -516,6 +596,16 @@ function TriggerCard({
           isOpen={open === "estrategia"}
           onToggle={() => setOpen("estrategia")}
         />
+
+        {/* "Ver perfil" as a full-width button below every section — per the
+            reference (Frame16), not inline next to the name. */}
+        <button
+          type="button"
+          onClick={onViewPerfil}
+          className="mt-3 w-full rounded-pill bg-brand-hover/15 px-4 py-2.5 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-xs text-brand-hover transition-colors hover:bg-brand-hover/25"
+        >
+          Ver perfil
+        </button>
       </div>
     </div>
   );
@@ -561,7 +651,7 @@ function courseNodeStyle(esPrincipal: boolean, status: CourseStatus): React.CSSP
     padding: 0,
     overflow: "hidden",
     fontFamily: "Inter, sans-serif",
-    width: 220,
+    width: 260,
     cursor: "pointer",
     boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
     textAlign: "left", // same ReactFlow default-node override as the trigger card
@@ -593,41 +683,45 @@ function courseNodeLabel(node: RoadmapNode, status: CourseStatus): React.ReactNo
   return (
     <div>
       {/* Header block — stands in for a course photo; category-tinted
-          since no real course images exist in the catalog data. */}
-      <div className="relative flex h-14 items-center justify-center" style={{ background: catColor.bg }}>
-        <BookOpen className="h-5 w-5" style={{ color: catColor.text }} />
+          since no real course images exist in the catalog data. Course
+          name lives here too, large and bold, matching the reference's
+          density (not just a small badge below); the decorative icon chip
+          bottom-right is purely visual — no data behind it, same rule as
+          the price/date rows below. */}
+      <div className="relative flex min-h-[92px] flex-col justify-center gap-1 p-3.5" style={{ background: catColor.bg }}>
+        <span className="font-['Inter:SemiBold',sans-serif] text-[11px] font-semibold" style={{ color: catColor.text }}>
+          {node.curso.categoria}
+        </span>
+        <p className="max-w-[70%] font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-base font-bold leading-tight text-ink">
+          {node.curso.nombre}
+        </p>
+        <span
+          className="absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-xl"
+          style={{ background: "rgba(255,255,255,0.55)" }}
+        >
+          <BookOpen className="h-4 w-4" style={{ color: catColor.text }} />
+        </span>
         {status === "en-progreso" && (
-          <span className="absolute right-2 top-2 rounded-pill bg-brand-hover px-2 py-0.5 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-[10px] text-white">
+          <span className="absolute right-3 top-3 rounded-pill bg-brand-hover px-2 py-0.5 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-[10px] text-white">
             Ingresar
           </span>
         )}
         {status === "completado" && (
-          <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-green-500 text-white">
+          <span className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-green-500 text-white">
             <Check className="h-3 w-3" strokeWidth={3} />
           </span>
         )}
       </div>
 
-      <div className="px-3 py-2.5">
-        <div className="mb-1 flex flex-wrap items-center gap-1">
-          <span
-            className="rounded-pill px-2 py-0.5 font-['Inter:Regular',sans-serif] text-[10px]"
-            style={{ background: catColor.bg, color: catColor.text }}
-          >
-            {node.curso.categoria}
+      <div className="px-3.5 py-3">
+        {/* Real branch name (e.g. "Complemento de producto"), not a
+            generic "Complementario" tag — the point is you can tell
+            which orientation this side branch represents at a glance. */}
+        {!node.esPrincipal && (
+          <span className="mb-1.5 inline-block rounded-pill bg-purple-100 px-2 py-0.5 font-['Inter:Regular',sans-serif] text-[10px] text-purple-700">
+            {node.rama}
           </span>
-          {/* Real branch name (e.g. "Complemento de producto"), not a
-              generic "Complementario" tag — the point is you can tell
-              which orientation this side branch represents at a glance. */}
-          {!node.esPrincipal && (
-            <span className="rounded-pill bg-purple-100 px-2 py-0.5 font-['Inter:Regular',sans-serif] text-[10px] text-purple-700">
-              {node.rama}
-            </span>
-          )}
-        </div>
-        <p className="mb-0.5 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-sm leading-snug text-ink">
-          {node.curso.nombre}
-        </p>
+        )}
         <span className="flex items-center gap-1 font-['Inter:Regular',sans-serif] text-[11px] text-ink-muted">
           <StatusIcon status={status} />
           {tipoLabel(node.curso.tipo)} · {statusLabel(status)}
@@ -682,10 +776,10 @@ function buildFlow(
       id: `e-${source}-${node.id}`,
       source,
       target: node.id,
-      label: truncate(node.justificacion, 60),
-      labelStyle: { fill: "var(--color-ink-muted, #666)", fontSize: 11, fontFamily: "Inter, sans-serif" },
-      labelBgStyle: { fill: "var(--color-cream-soft, #fff)" },
-      style: { stroke: "var(--color-brand-hover, #ff5a36)" },
+      type: "smoothstep",
+      markerStart: EDGE_DOT_MARKER,
+      markerEnd: EDGE_DOT_MARKER,
+      style: { stroke: "#1a1a1a", strokeWidth: 1.5 },
     });
   });
 
@@ -716,15 +810,10 @@ function buildFlow(
         id: `e-${source}-${node.id}`,
         source,
         target: node.id,
-        label: isFork ? rama.nombre : truncate(node.justificacion, 60),
-        labelStyle: {
-          fill: isFork ? "#7c3aed" : "var(--color-ink-muted, #666)",
-          fontSize: 11,
-          fontWeight: isFork ? 600 : 400,
-          fontFamily: "Inter, sans-serif",
-        },
-        labelBgStyle: { fill: "var(--color-cream-soft, #fff)" },
-        style: { stroke: "#8b5cf6", strokeDasharray: isFork ? "4 3" : undefined },
+        type: "smoothstep",
+        markerStart: EDGE_DOT_MARKER_PURPLE,
+        markerEnd: EDGE_DOT_MARKER_PURPLE,
+        style: { stroke: "#8b5cf6", strokeWidth: 1.5, strokeDasharray: isFork ? "4 3" : undefined },
       });
     });
   });
@@ -732,6 +821,11 @@ function buildFlow(
   return { nodes, edges };
 }
 
-function truncate(text: string, max: number): string {
-  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
-}
+// Small filled markers at each connector endpoint, closer to the
+// reference's ConnectorLines (a solid dot at every junction) than React
+// Flow's thin default line with no cap. No text sits on the line itself
+// anymore — the branch name and justificación both already show on the
+// node/badge and in the click-through detail panel, so nothing is lost by
+// dropping the label.
+const EDGE_DOT_MARKER = { type: MarkerType.ArrowClosed, color: "#1a1a1a", width: 10, height: 10 } as const;
+const EDGE_DOT_MARKER_PURPLE = { type: MarkerType.ArrowClosed, color: "#8b5cf6", width: 10, height: 10 } as const;

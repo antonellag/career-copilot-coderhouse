@@ -1,4 +1,4 @@
-import { Search } from "lucide-react";
+import { BookOpen, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { CATALOG, categoriesFor, type CatalogCourse, type CourseType } from "@/lib/catalogClient";
 
@@ -209,9 +209,17 @@ function CourseCard({ course }: { course: CatalogCourse }) {
         >
           {course.categoria}
         </span>
-        <p className="max-w-[75%] font-['Inter:Bold',sans-serif] text-lg font-bold leading-tight text-ink">
+        <p className="max-w-[70%] font-['Inter:Bold',sans-serif] text-lg font-bold leading-tight text-ink">
           {course.nombre}
         </p>
+        {/* Decorative icon chip, no data behind it — same category palette
+            Plan carrera's map nodes use for the header block. */}
+        <span
+          className="absolute bottom-3.5 right-3.5 flex h-10 w-10 items-center justify-center rounded-xl"
+          style={{ background: "rgba(255,255,255,0.55)" }}
+        >
+          <BookOpen className="h-4.5 w-4.5" style={{ color: catColor.text }} />
+        </span>
         {course.descuento && (
           <span className="absolute right-3 top-3 rounded-pill bg-brand-hover px-2 py-1 font-['Inter:Bold',sans-serif] text-[11px] font-bold text-white">
             {course.descuento}
