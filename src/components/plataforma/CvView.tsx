@@ -29,13 +29,19 @@ import type { CourseStatus } from "@/lib/roadmapProgress";
  * (src/lib/roadmapProgress.ts): any course at "completado" becomes a line
  * here, dated from when it was marked complete. Mark a course complete on
  * the map, switch to this tab, it's already there.
+ *
+ * `roadmap` is null when /limbo's "Omitir test" shortcut skipped the
+ * conversation entirely (src/pages/Plataforma.tsx's doc comment) — every
+ * roadmap-derived field just falls back to nothing (no trigger summary, no
+ * certifications) instead of crashing; parseCv(null, null) already returns
+ * a fully empty-but-safe CV on its own.
  */
 export function CvView({
   roadmap,
   getStatus,
   getCompletedAt,
 }: {
-  roadmap: Roadmap;
+  roadmap: Roadmap | null;
   getStatus: (id: string) => CourseStatus;
   getCompletedAt: (id: string) => string | undefined;
 }) {
@@ -44,13 +50,13 @@ export function CvView({
   // topic sections for the map's trigger node) — combine the two closest
   // ones as this fallback's equivalent when there's no CV to parse.
   const fallbackResumen = useMemo(
-    () => [roadmap.trigger.experiencia, roadmap.trigger.habilidades].filter(Boolean).join(" "),
+    () => (roadmap ? [roadmap.trigger.experiencia, roadmap.trigger.habilidades].filter(Boolean).join(" ") : null),
     [roadmap],
   );
   const cv = useMemo(() => parseCv(loadProfileInput(), fallbackResumen), [fallbackResumen]);
   const currentRole = cv.experiencia[0]?.puesto ?? null;
 
-  const certifications = roadmap.nodos
+  const certifications = (roadmap?.nodos ?? [])
     .filter((n) => getStatus(n.id) === "completado")
     .map((n) => ({ nombre: n.curso.nombre, fecha: getCompletedAt(n.id) }))
     .sort((a, b) => (a.fecha ?? "").localeCompare(b.fecha ?? ""));
@@ -90,6 +96,22 @@ export function CvView({
             </button>
           </div>
         </div>
+
+        {!cv.resumen &&
+          cv.experiencia.length === 0 &&
+          cv.educacion.length === 0 &&
+          cv.herramientas.length === 0 &&
+          cv.extra.length === 0 && (
+            <div className="mb-4 rounded-[20px] border border-dashed border-border-soft bg-white px-6 py-8 text-center">
+              <p className="mb-1 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-sm text-ink">
+                Todavía no cargaste información para tu CV
+              </p>
+              <p className="font-['Inter:Regular',sans-serif] text-xs text-ink-muted">
+                Contanos tu experiencia en la conversación inicial (o adjuntá tu CV ahí) y este espacio
+                se completa solo.
+              </p>
+            </div>
+          )}
 
         {cv.resumen && (
           <Section title="Resumen">

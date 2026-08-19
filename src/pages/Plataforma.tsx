@@ -110,6 +110,16 @@ import { nextStatus, useRoadmapProgress, type CourseStatus } from "@/lib/roadmap
  *   "Comprar" is decorative too, and never touches roadmap progress (that's
  *   Plan carrera's job only).
  *
+ * No hard gate on missing roadmap data anymore: /limbo's "Omitir test"
+ * shortcut (src/pages/Limbo.tsx) jumps straight here without ever running
+ * the conversation, so `loadRoadmap()` can legitimately come back null.
+ * Every tab that reads roadmap data (Plan carrera, CV, Portfolio) accepts
+ * `roadmap: Roadmap | null` and shows its own "todavía no cargaste nada"
+ * empty state instead of the whole page refusing to render — Catálogo,
+ * Panel inicio, Novedades and Oferta laboral never needed roadmap data
+ * anyway, so they're unaffected either way. No manual-entry forms yet
+ * (filling CV/Plan de carrera by hand) — that's a separate, bigger feature.
+ *
  * "Limbo" is this session's internal codename only — it never appears in
  * user-facing copy.
  */
@@ -133,29 +143,6 @@ export default function Plataforma() {
   // the top-level tab — same level this component already owns, nothing in
   // Perfil's own internals is touched.
   const onViewPerfil = useCallback(() => setTab("perfil"), []);
-
-  if (!roadmap || roadmap.nodos.length === 0) {
-    return (
-      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-cream-soft px-6 text-center">
-        <span className="flex h-14 w-14 items-center justify-center rounded-full bg-ink/5 text-ink-muted">
-          <AlertCircle className="h-6 w-6" />
-        </span>
-        <h1 className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-xl text-ink">
-          No encontramos tu recorrido
-        </h1>
-        <p className="max-w-sm font-['Inter:Regular',sans-serif] text-sm text-ink-muted">
-          Puede que hayas llegado acá directo, sin pasar por la conversación. Volvé a empezar para
-          armar tu recorrido.
-        </p>
-        <Link
-          to="/limbo"
-          className="rounded-pill bg-brand-hover px-6 py-3 font-['Plus_Jakarta_Sans:Medium',sans-serif] text-sm text-white transition-transform hover:scale-105"
-        >
-          Volver a empezar
-        </Link>
-      </div>
-    );
-  }
 
   return (
     <PlataformaLayout activeTab={tab} onTabChange={setTab}>
@@ -199,7 +186,8 @@ function MapaBody({
   setSelectedId,
   onViewPerfil,
 }: {
-  roadmap: Roadmap;
+  /** Null when /limbo's "Omitir test" shortcut skipped straight here — see the module doc comment. */
+  roadmap: Roadmap | null;
   getStatus: (id: string) => CourseStatus;
   advance: (id: string) => void;
   selectedId: string | null;
@@ -225,13 +213,13 @@ function MapaBody({
     if (!q) return builtNodes;
     return builtNodes.map((n) => {
       if (n.id === "trigger") return n;
-      const node = roadmap.nodos.find((rn) => rn.id === n.id);
+      const node = roadmap?.nodos.find((rn) => rn.id === n.id);
       const matches = node?.curso.nombre.toLowerCase().includes(q) ?? false;
       return { ...n, style: { ...n.style, opacity: matches ? 1 : 0.25 } };
     });
-  }, [builtNodes, query, roadmap.nodos]);
+  }, [builtNodes, query, roadmap]);
 
-  const selectedNode = selectedId ? roadmap.nodos.find((n) => n.id === selectedId) : null;
+  const selectedNode = selectedId ? (roadmap?.nodos.find((n) => n.id === selectedId) ?? null) : null;
 
   // "Selección" (default click/drag-to-marquee) vs. "Mano" (drag-to-pan) —
   // matches Frame34's two-button toggle in the reference, and it's wired to
@@ -239,6 +227,8 @@ function MapaBody({
   // toggle. Minimap visibility (the "map" icon in Frame31) is also real.
   const [tool, setTool] = useState<"select" | "hand">("hand");
   const [showMinimap, setShowMinimap] = useState(false);
+
+  if (!roadmap) return <EmptyMapState />;
 
   return (
     <div className="relative flex-1">
@@ -398,6 +388,34 @@ function ToolbarButton({
     >
       {children}
     </button>
+  );
+}
+
+// Shown instead of the canvas when there's no roadmap to draw — reached via
+// /limbo's "Omitir test" shortcut (src/pages/Limbo.tsx), which skips the
+// conversation entirely, so there's nothing generated yet. No manual
+// course-builder exists yet (that's a separate feature); this just says so
+// plainly instead of the old hard page-level block.
+function EmptyMapState() {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
+      <span className="flex h-14 w-14 items-center justify-center rounded-full bg-ink/5 text-ink-muted">
+        <AlertCircle className="h-6 w-6" />
+      </span>
+      <h2 className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-lg text-ink">
+        Todavía no armaste tu recorrido
+      </h2>
+      <p className="max-w-sm font-['Inter:Regular',sans-serif] text-sm text-ink-muted">
+        Omitiste la conversación inicial, así que no hay cursos para mostrar acá todavía. La carga
+        manual está en camino — por ahora, volvé a la conversación para generarlo.
+      </p>
+      <Link
+        to="/limbo"
+        className="rounded-pill bg-brand-hover px-6 py-3 font-['Plus_Jakarta_Sans:Medium',sans-serif] text-sm text-white transition-transform hover:scale-105"
+      >
+        Ir a la conversación
+      </Link>
+    </div>
   );
 }
 
@@ -732,10 +750,16 @@ function courseNodeLabel(node: RoadmapNode, status: CourseStatus): React.ReactNo
 }
 
 function buildFlow(
-  roadmap: Roadmap,
+  roadmap: Roadmap | null,
   getStatus: (id: string) => CourseStatus,
   onViewPerfil: () => void,
 ): { nodes: Node[]; edges: Edge[] } {
+  // MapaBody itself bails out to <EmptyMapState /> before ever rendering
+  // ReactFlow when roadmap is null (see the null check right above its
+  // `return`) — this early-out only exists so the useMemo call above that
+  // check stays hook-order-safe, never actually reaches the canvas.
+  if (!roadmap) return { nodes: [], edges: [] };
+
   const nodes: Node[] = [];
   const edges: Edge[] = [];
   const courseGapX = 280;

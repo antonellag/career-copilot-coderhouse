@@ -65,7 +65,8 @@ export function PortfolioView({
   contacto,
   setContacto,
 }: {
-  roadmap: Roadmap;
+  /** Null when /limbo's "Omitir test" shortcut skipped straight here — the auto-generated items just come back empty. */
+  roadmap: Roadmap | null;
   getStatus: (id: string) => CourseStatus;
   project: PortfolioProject | null;
   setProject: (p: PortfolioProject | null) => void;
@@ -79,7 +80,7 @@ export function PortfolioView({
   const [editing, setEditing] = useState(false);
   const [importing, setImporting] = useState(false);
 
-  const autoItems = roadmap.nodos
+  const autoItems = (roadmap?.nodos ?? [])
     .filter((n) => getStatus(n.id) === "completado")
     .map((n) => ({ id: n.id, titulo: `Proyecto final: ${n.curso.nombre}` }));
 

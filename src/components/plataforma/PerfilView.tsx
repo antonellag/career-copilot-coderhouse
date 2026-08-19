@@ -36,7 +36,8 @@ export function PerfilView({
   contacto,
   setContacto,
 }: {
-  roadmap: Roadmap;
+  /** Null when /limbo's "Omitir test" shortcut skipped straight here — CvView/PortfolioView each show their own empty state. */
+  roadmap: Roadmap | null;
   getStatus: (id: string) => CourseStatus;
   getCompletedAt: (id: string) => string | undefined;
   project: PortfolioProject | null;
