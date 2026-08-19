@@ -10,6 +10,8 @@ import { PerfilView } from "@/components/plataforma/PerfilView";
 import { PlataformaLayout, type PlataformaTab } from "@/components/plataforma/PlataformaLayout";
 import type { PortfolioProject } from "@/components/plataforma/PortfolioView";
 import { loadRoadmap, type Roadmap, type RoadmapNode } from "@/lib/ai/roadmapClient";
+import { parseCv } from "@/lib/cvParser";
+import { loadProfileInput } from "@/lib/profileStore";
 import { nextStatus, useRoadmapProgress, type CourseStatus } from "@/lib/roadmapProgress";
 
 /**
@@ -306,16 +308,21 @@ function tipoLabel(tipo: string): string {
   return "Curso";
 }
 
-// Wider than the course cards (280 vs 220) since it now carries real text
-// per topic instead of a one-line label — still just one more node in the
+// Wider than the course cards (280 vs 220) since it carries real text per
+// topic instead of a one-line label — still just one more node in the
 // chain, not a separately-treated side card (see git history for that
-// back-and-forth).
+// back-and-forth). Creative pass: a colorful gradient header band (same
+// idea as the CV profile card treatment, applied here instead per
+// feedback) plus real skill tags pulled from the same CV parse CvView
+// uses — same "no invented data" rule, tags only render if there's
+// something real to show.
 const TRIGGER_NODE_STYLE: React.CSSProperties = {
   background: "var(--color-ink, #1a1a1a)",
   color: "white",
   border: "1.5px solid rgba(255,255,255,0.15)",
   borderRadius: 16,
-  padding: "14px 16px",
+  padding: 0,
+  overflow: "hidden",
   fontFamily: "Inter, sans-serif",
   width: 280,
   boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
@@ -375,21 +382,45 @@ function buildFlow(roadmap: Roadmap, getStatus: (id: string) => CourseStatus): {
   const edges: Edge[] = [];
   const courseGapX = 280;
 
+  // Same CV parse CvView.tsx uses, just for the herramientas tag row —
+  // real data (or nothing) only.
+  const fallbackResumen = [roadmap.trigger.experiencia, roadmap.trigger.habilidades].filter(Boolean).join(" ");
+  const cv = parseCv(loadProfileInput(), fallbackResumen);
+
   nodes.push({
     id: "trigger",
     position: { x: 0, y: 140 },
     data: {
       label: (
         <div>
-          <div className="mb-2.5 flex items-center gap-1.5 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-xs uppercase tracking-wide text-white/70">
-            <Zap className="h-3.5 w-3.5" />
-            Tu perfil
+          <div
+            className="flex items-center gap-1.5 px-4 py-2.5"
+            style={{ background: "linear-gradient(120deg, #ffb37a 0%, #ff5c2d 30%, #ff2d78 58%, #7c3aed 80%, #2563eb 100%)" }}
+          >
+            <Zap className="h-3.5 w-3.5 text-white" />
+            <span className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-xs uppercase tracking-wide text-white">
+              Tu perfil
+            </span>
           </div>
-          <TriggerSection title="Experiencia" text={roadmap.trigger.experiencia} />
-          <TriggerSection title="Habilidades" text={roadmap.trigger.habilidades} />
-          <TriggerSection title="Plan de carrera" text={roadmap.trigger.planDeCarrera} />
-          <div className="my-2.5 border-t border-white/15" />
-          <TriggerSection title="Estrategia y especialización" text={roadmap.trigger.estrategiaYEspecializacion} last />
+          <div className="px-4 py-3">
+            <TriggerSection title="Experiencia" text={roadmap.trigger.experiencia} />
+            <TriggerSection title="Habilidades" text={roadmap.trigger.habilidades} />
+            <TriggerSection title="Plan de carrera" text={roadmap.trigger.planDeCarrera} />
+            <div className="my-2.5 border-t border-white/15" />
+            <TriggerSection title="Estrategia y especialización" text={roadmap.trigger.estrategiaYEspecializacion} />
+            {cv.herramientas.length > 0 && (
+              <div className="mt-2.5 flex flex-wrap gap-1.5">
+                {cv.herramientas.map((h, i) => (
+                  <span
+                    key={i}
+                    className="rounded-pill bg-white/10 px-2.5 py-1 font-['Inter:Regular',sans-serif] text-[10px] font-medium text-white"
+                  >
+                    {h}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       ),
     },
