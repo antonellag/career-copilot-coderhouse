@@ -6,12 +6,23 @@ import { getCourseById, type Course } from "./_lib/courseCatalog.js";
 /**
  * Fase 4 (Resultado) roadmap generation. Separate endpoint from /api/chat —
  * this isn't a chat turn, it's one structured-output call that returns a
- * course roadmap (see api/_lib/roadmapPrompt.ts for the schema), and the
- * model is restricted to picking course ids from data/course-catalog.json
- * (never a free-text course name).
+ * branching course roadmap (see api/_lib/roadmapPrompt.ts for the schema),
+ * and the model is restricted to picking course ids from
+ * data/course-catalog.json (never a free-text course name).
  *
  * Request body: { transcript: string, riasecLabels: string[] }
- * Response body: { trigger: RoadmapTrigger, nodos: RoadmapNode[] }
+ * Response body: {
+ *   trigger: RoadmapTrigger,
+ *   ramaPrincipal: RoadmapBranch,
+ *   ramasComplementarias: RoadmapBranch[],
+ *   nodos: RoadmapNode[]  // flat, ALL nodes (principal + every complementary
+ *                         // branch) — kept for the existing consumers that
+ *                         // never needed to know about branches (CV
+ *                         // certifications, portfolio auto-projects, the
+ *                         // map's own search filter, the detail panel's
+ *                         // node lookup). The map UI reads ramaPrincipal/
+ *                         // ramasComplementarias instead to draw branches.
+ * }
  */
 
 const MODEL_NAME = "gemini-3.5-flash";
@@ -23,16 +34,41 @@ export type RoadmapTrigger = {
   estrategiaYEspecializacion: string;
 };
 
-type RawNode = { id: string; orden: number; esTransversal: boolean; justificacion: string };
-type RawResponse = { trigger?: Partial<RoadmapTrigger>; nodos?: RawNode[] };
+type RawNode = { id: string; orden: number; justificacion: string };
+type RawRamaPrincipal = { nombre: string; nodos: RawNode[] };
+type RawRamaComplementaria = { nombre: string; nace_desde: string; nodos: RawNode[] };
+type RawResponse = {
+  trigger?: Partial<RoadmapTrigger>;
+  rama_principal?: RawRamaPrincipal;
+  ramas_complementarias?: RawRamaComplementaria[];
+};
 
 export type RoadmapNode = {
   id: string;
   orden: number;
-  esTransversal: boolean;
   justificacion: string;
   curso: Course;
+  /** Name of the branch this node belongs to — rama_principal's nombre, or a complementary branch's. */
+  rama: string;
+  esPrincipal: boolean;
 };
+
+export type RoadmapBranch = {
+  nombre: string;
+  /** Only set on complementary branches — id of the rama_principal node it forks from. */
+  naceDesde?: string;
+  nodos: RoadmapNode[];
+};
+
+function buildNodes(raw: RawNode[] | undefined, rama: string, esPrincipal: boolean): RoadmapNode[] {
+  return (raw ?? [])
+    .map((n) => {
+      const curso = getCourseById(n.id);
+      return curso ? { id: n.id, orden: n.orden, justificacion: n.justificacion, curso, rama, esPrincipal } : null;
+    })
+    .filter((n): n is RoadmapNode => n !== null)
+    .sort((a, b) => a.orden - b.orden);
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
@@ -72,21 +108,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const parsed: RawResponse = JSON.parse(result.response.text());
 
     // Never trust the model's course ids — filter out anything that isn't
-    // in the real catalog, then re-sort by the model's requested order.
-    const nodos: RoadmapNode[] = (parsed.nodos ?? [])
-      .map((n) => {
-        const curso = getCourseById(n.id);
-        return curso
-          ? { id: n.id, orden: n.orden, esTransversal: Boolean(n.esTransversal), justificacion: n.justificacion, curso }
-          : null;
-      })
-      .filter((n): n is RoadmapNode => n !== null)
-      .sort((a, b) => a.orden - b.orden);
+    // in the real catalog, then re-sort each branch by its own orden.
+    const ramaPrincipalNombre = parsed.rama_principal?.nombre?.trim() || "Tu especialización";
+    const ramaPrincipalNodos = buildNodes(parsed.rama_principal?.nodos, ramaPrincipalNombre, true);
 
-    if (nodos.length === 0) {
+    if (ramaPrincipalNodos.length === 0) {
       res.status(502).json({ error: "El modelo no devolvió ningún curso válido del catálogo. Probá de nuevo." });
       return;
     }
+
+    const principalIds = new Set(ramaPrincipalNodos.map((n) => n.id));
+
+    // A complementary branch only survives if it has at least one valid
+    // course AND its nace_desde actually points at a real rama_principal
+    // node — otherwise there's nowhere honest to draw it forking from.
+    const ramasComplementarias: RoadmapBranch[] = (parsed.ramas_complementarias ?? [])
+      .map((r): RoadmapBranch | null => {
+        const nombre = r.nombre?.trim();
+        const naceDesde = r.nace_desde;
+        if (!nombre || !naceDesde || !principalIds.has(naceDesde)) return null;
+        const nodos = buildNodes(r.nodos, nombre, false);
+        if (nodos.length === 0) return null;
+        return { nombre, naceDesde, nodos };
+      })
+      .filter((r): r is RoadmapBranch => r !== null);
+
+    const ramaPrincipal: RoadmapBranch = { nombre: ramaPrincipalNombre, nodos: ramaPrincipalNodos };
+    const nodos: RoadmapNode[] = [...ramaPrincipalNodos, ...ramasComplementarias.flatMap((r) => r.nodos)];
 
     const trigger: RoadmapTrigger = {
       experiencia: parsed.trigger?.experiencia?.trim() || "Perfil armado a partir de tu conversación.",
@@ -95,7 +143,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       estrategiaYEspecializacion: parsed.trigger?.estrategiaYEspecializacion?.trim() || "",
     };
 
-    res.status(200).json({ trigger, nodos });
+    res.status(200).json({ trigger, ramaPrincipal, ramasComplementarias, nodos });
   } catch (error) {
     console.error("[api/roadmap] Gemini call failed:", error);
     res.status(502).json({ error: "No pudimos armar tu recorrido. Probá de nuevo." });

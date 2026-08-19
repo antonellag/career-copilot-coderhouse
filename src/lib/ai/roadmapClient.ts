@@ -21,13 +21,25 @@ export type RoadmapCourse = {
 export type RoadmapNode = {
   id: string;
   orden: number;
-  esTransversal: boolean;
   justificacion: string;
   curso: RoadmapCourse;
+  /** Name of the branch this node belongs to — ramaPrincipal's nombre, or a complementary branch's. */
+  rama: string;
+  esPrincipal: boolean;
+};
+
+export type RoadmapBranch = {
+  nombre: string;
+  /** Only set on complementary branches — id of the ramaPrincipal node it forks from. */
+  naceDesde?: string;
+  nodos: RoadmapNode[];
 };
 
 export type Roadmap = {
   trigger: RoadmapTrigger;
+  ramaPrincipal: RoadmapBranch;
+  ramasComplementarias: RoadmapBranch[];
+  /** Flat, ALL nodes (principal + every complementary branch) — for consumers that don't need branch structure (CV certifications, portfolio, the map's search filter, the detail panel's node lookup). */
   nodos: RoadmapNode[];
 };
 
