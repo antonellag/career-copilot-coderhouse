@@ -10,7 +10,6 @@ import {
   Plus,
   Send,
   Settings2,
-  Wand2,
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -390,9 +389,24 @@ export default function Limbo() {
 
         <form onSubmit={handleSubmit} className={phase === "test" ? "pointer-events-none opacity-40" : undefined}>
           <div className="flex items-center gap-2 rounded-pill border border-border-soft bg-white p-2 shadow-[0_8px_24px_rgba(0,0,0,0.08)]">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-hover text-white">
-              <Wand2 className="h-4 w-4" strokeWidth={2} />
-            </span>
+            {!started.current && (
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/pdf,.pdf"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+            )}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={started.current || cv.status === "loading"}
+              aria-label="Adjuntar CV (PDF)"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-brand-hover bg-white text-brand-hover transition-colors hover:bg-brand-hover/10 disabled:opacity-40"
+            >
+              <Plus className="h-4 w-4" strokeWidth={2} />
+            </button>
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -400,26 +414,6 @@ export default function Limbo() {
               disabled={isLoading || phase === "test"}
               className="flex-1 bg-transparent px-1 py-2 font-['Inter:Regular',sans-serif] text-sm text-ink outline-none placeholder:text-ink-muted"
             />
-            {!started.current && (
-              <>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="application/pdf,.pdf"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={cv.status === "loading"}
-                  aria-label="Adjuntar CV (PDF)"
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-ink/5 hover:text-ink disabled:opacity-40"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
-              </>
-            )}
             <button
               type="submit"
               disabled={isLoading || !input.trim()}
