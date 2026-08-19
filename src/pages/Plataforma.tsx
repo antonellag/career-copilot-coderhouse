@@ -1,7 +1,7 @@
 import { Background, Controls, Panel, Position, ReactFlow, type Edge, type Node } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { AlertCircle, BookOpen, Check, CheckCircle2, Circle, Search, X, Zap } from "lucide-react";
-import { useMemo, useState } from "react";
+import { AlertCircle, BookOpen, Check, CheckCircle2, ChevronDown, ChevronUp, Circle, Search, X } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { CatalogoView } from "@/components/plataforma/CatalogoView";
 import { NovedadesView } from "@/components/plataforma/NovedadesView";
@@ -77,6 +77,12 @@ export default function Plataforma() {
   const [disponible, setDisponible] = useState(false);
   const [contacto, setContacto] = useState("");
 
+  // Stable reference (useCallback) so it doesn't force MapaBody's useMemo
+  // to recompute the whole flow on every Plataforma render. Only switches
+  // the top-level tab — same level this component already owns, nothing in
+  // Perfil's own internals is touched.
+  const onViewPerfil = useCallback(() => setTab("perfil"), []);
+
   if (!roadmap || roadmap.nodos.length === 0) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4 bg-cream-soft px-6 text-center">
@@ -110,6 +116,7 @@ export default function Plataforma() {
           advance={advance}
           selectedId={selectedId}
           setSelectedId={setSelectedId}
+          onViewPerfil={onViewPerfil}
         />
       )}
       {tab === "catalogo" && <CatalogoView />}
@@ -139,16 +146,21 @@ function MapaBody({
   advance,
   selectedId,
   setSelectedId,
+  onViewPerfil,
 }: {
   roadmap: Roadmap;
   getStatus: (id: string) => CourseStatus;
   advance: (id: string) => void;
   selectedId: string | null;
   setSelectedId: (id: string | null) => void;
+  onViewPerfil: () => void;
 }) {
   // Recomputed whenever a status changes (getStatus's identity changes with
   // it — see useRoadmapProgress) so completed/in-progress nodes repaint.
-  const { nodes: builtNodes, edges } = useMemo(() => buildFlow(roadmap, getStatus), [roadmap, getStatus]);
+  const { nodes: builtNodes, edges } = useMemo(
+    () => buildFlow(roadmap, getStatus, onViewPerfil),
+    [roadmap, getStatus, onViewPerfil],
+  );
 
   const [query, setQuery] = useState("");
   // Real filter, not decorative: matches the boceto's floating "Buscar
@@ -308,36 +320,134 @@ function tipoLabel(tipo: string): string {
   return "Curso";
 }
 
-// Wider than the course cards (280 vs 220) since it carries real text per
-// topic instead of a one-line label — still just one more node in the
-// chain, not a separately-treated side card (see git history for that
-// back-and-forth). Creative pass: a colorful gradient header band (same
-// idea as the CV profile card treatment, applied here instead per
-// feedback) plus real skill tags pulled from the same CV parse CvView
-// uses — same "no invented data" rule, tags only render if there's
-// something real to show.
+// Wider than the course cards (320 vs 220) — a real profile card now, per
+// the hand-drawn boceto: dark photo-style banner, avatar, name + role,
+// "Ver perfil", then the 4 topic sections as an accordion (one open at a
+// time) instead of always-expanded text blocks. Still just one more node
+// in the chain, not a page-level side panel (see git history for that
+// back-and-forth) — "Ver perfil" is the one link out, switching the
+// top-level tab only (src/pages/Plataforma.tsx owns that), nothing inside
+// Perfil itself is touched.
 const TRIGGER_NODE_STYLE: React.CSSProperties = {
-  background: "var(--color-ink, #1a1a1a)",
-  color: "white",
-  border: "1.5px solid rgba(255,255,255,0.15)",
-  borderRadius: 16,
+  background: "white",
+  color: "var(--color-ink, #1a1a1a)",
+  border: "none",
+  borderRadius: 20,
   padding: 0,
   overflow: "hidden",
   fontFamily: "Inter, sans-serif",
-  width: 280,
-  boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
+  width: 320,
+  boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
 };
 
-// Each of the trigger node's 4 topic sections — real per-topic text from
-// the model (api/_lib/roadmapPrompt.ts), not a single blurb. Skips
-// rendering entirely if the model left a field empty rather than showing a
-// blank heading.
-function TriggerSection({ title, text, last = false }: { title: string; text: string; last?: boolean }) {
+type TriggerSectionKey = "experiencia" | "habilidades" | "plan" | "estrategia";
+
+function TriggerCard({
+  roadmap,
+  cv,
+  onViewPerfil,
+}: {
+  roadmap: Roadmap;
+  cv: ReturnType<typeof parseCv>;
+  onViewPerfil: () => void;
+}) {
+  // Estrategia y especialización starts open, matching the boceto.
+  const [open, setOpen] = useState<TriggerSectionKey>("estrategia");
+  const currentRole = cv.experiencia[0]?.puesto ?? null;
+
+  const topRows: { key: TriggerSectionKey; title: string; text: string }[] = [
+    { key: "experiencia", title: "Experiencia", text: roadmap.trigger.experiencia },
+    { key: "habilidades", title: "Habilidades", text: roadmap.trigger.habilidades },
+    { key: "plan", title: "Plan de carrera", text: roadmap.trigger.planDeCarrera },
+  ];
+
+  return (
+    <div>
+      {/* Dark banner — approximates the photo-style header from the boceto
+          (no real user photos exist, so a textured dark gradient with a
+          warm accent streak stands in, never a fabricated photo). */}
+      <div
+        className="h-20"
+        style={{ background: "linear-gradient(100deg, #0a0a0a 0%, #1a1a1a 55%, #ff5c2d 82%, #1a1a1a 100%)" }}
+      />
+
+      <div className="px-4 pb-4">
+        <div className="-mt-7 mb-3 flex items-end justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <span
+              className="h-12 w-12 shrink-0 rounded-full border-[3px] border-white shadow-[0_2px_8px_rgba(0,0,0,0.15)]"
+              style={{ background: "radial-gradient(circle at 30% 30%, #4c1d95, #0f0a1e 70%)" }}
+            />
+            <div>
+              <p className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-sm text-ink">
+                {cv.nombre ?? "Tu perfil"}
+              </p>
+              {currentRole && (
+                <p className="font-['Inter:Regular',sans-serif] text-xs text-ink-muted">{currentRole}</p>
+              )}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onViewPerfil}
+            className="shrink-0 rounded-pill bg-brand-hover/15 px-3 py-1.5 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-xs text-brand-hover transition-colors hover:bg-brand-hover/25"
+          >
+            Ver perfil
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          {topRows.map((row) => (
+            <AccordionRow
+              key={row.key}
+              title={row.title}
+              text={row.text}
+              isOpen={open === row.key}
+              onToggle={() => setOpen(row.key)}
+            />
+          ))}
+        </div>
+
+        <div className="my-2.5 border-t border-border-soft" />
+
+        <AccordionRow
+          title="Estrategia y especialización"
+          text={roadmap.trigger.estrategiaYEspecializacion}
+          isOpen={open === "estrategia"}
+          onToggle={() => setOpen("estrategia")}
+        />
+      </div>
+    </div>
+  );
+}
+
+// One row of the trigger card's accordion. Skips rendering entirely if the
+// model left that field empty rather than showing a blank/dead row.
+function AccordionRow({
+  title,
+  text,
+  isOpen,
+  onToggle,
+}: {
+  title: string;
+  text: string;
+  isOpen: boolean;
+  onToggle: () => void;
+}) {
   if (!text) return null;
   return (
-    <div className={last ? "" : "mb-2.5"}>
-      <p className="mb-0.5 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-[11px] text-white">{title}</p>
-      <p className="font-['Inter:Regular',sans-serif] text-[12px] leading-snug text-white/75">{text}</p>
+    <div className="rounded-xl border border-border-soft">
+      <button type="button" onClick={onToggle} className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left">
+        <span className="font-['Inter:Regular',sans-serif] text-[13px] font-medium text-ink">{title}</span>
+        {isOpen ? (
+          <ChevronUp className="h-3.5 w-3.5 shrink-0 text-ink-muted" />
+        ) : (
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-ink-muted" />
+        )}
+      </button>
+      {isOpen && (
+        <p className="px-3 pb-3 font-['Inter:Regular',sans-serif] text-[12px] leading-relaxed text-ink-muted">{text}</p>
+      )}
     </div>
   );
 }
@@ -377,53 +487,25 @@ function categoryColor(categoria: string): { bg: string; text: string } {
   return CATEGORY_COLORS[categoria] ?? { bg: "#f3f4f6", text: "#374151" };
 }
 
-function buildFlow(roadmap: Roadmap, getStatus: (id: string) => CourseStatus): { nodes: Node[]; edges: Edge[] } {
+function buildFlow(
+  roadmap: Roadmap,
+  getStatus: (id: string) => CourseStatus,
+  onViewPerfil: () => void,
+): { nodes: Node[]; edges: Edge[] } {
   const nodes: Node[] = [];
   const edges: Edge[] = [];
   const courseGapX = 280;
+  const courseStartX = 380; // trigger card is 320 wide now, wider than before
 
-  // Same CV parse CvView.tsx uses, just for the herramientas tag row —
-  // real data (or nothing) only.
+  // Same CV parse CvView.tsx uses, for the card's name/role — real data
+  // (or a fallback) only.
   const fallbackResumen = [roadmap.trigger.experiencia, roadmap.trigger.habilidades].filter(Boolean).join(" ");
   const cv = parseCv(loadProfileInput(), fallbackResumen);
 
   nodes.push({
     id: "trigger",
-    position: { x: 0, y: 140 },
-    data: {
-      label: (
-        <div>
-          <div
-            className="flex items-center gap-1.5 px-4 py-2.5"
-            style={{ background: "linear-gradient(120deg, #ffb37a 0%, #ff5c2d 30%, #ff2d78 58%, #7c3aed 80%, #2563eb 100%)" }}
-          >
-            <Zap className="h-3.5 w-3.5 text-white" />
-            <span className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-xs uppercase tracking-wide text-white">
-              Tu perfil
-            </span>
-          </div>
-          <div className="px-4 py-3">
-            <TriggerSection title="Experiencia" text={roadmap.trigger.experiencia} />
-            <TriggerSection title="Habilidades" text={roadmap.trigger.habilidades} />
-            <TriggerSection title="Plan de carrera" text={roadmap.trigger.planDeCarrera} />
-            <div className="my-2.5 border-t border-white/15" />
-            <TriggerSection title="Estrategia y especialización" text={roadmap.trigger.estrategiaYEspecializacion} />
-            {cv.herramientas.length > 0 && (
-              <div className="mt-2.5 flex flex-wrap gap-1.5">
-                {cv.herramientas.map((h, i) => (
-                  <span
-                    key={i}
-                    className="rounded-pill bg-white/10 px-2.5 py-1 font-['Inter:Regular',sans-serif] text-[10px] font-medium text-white"
-                  >
-                    {h}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      ),
-    },
+    position: { x: 0, y: 100 },
+    data: { label: <TriggerCard roadmap={roadmap} cv={cv} onViewPerfil={onViewPerfil} /> },
     style: TRIGGER_NODE_STYLE,
     sourcePosition: Position.Right,
   });
@@ -433,7 +515,7 @@ function buildFlow(roadmap: Roadmap, getStatus: (id: string) => CourseStatus): {
     const catColor = categoryColor(node.curso.categoria);
     nodes.push({
       id: node.id,
-      position: { x: 300 + i * courseGapX, y: 140 },
+      position: { x: courseStartX + i * courseGapX, y: 140 },
       data: {
         label: (
           <div>
