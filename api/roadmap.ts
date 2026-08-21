@@ -60,11 +60,27 @@ export type RoadmapBranch = {
   nodos: RoadmapNode[];
 };
 
-function buildNodes(raw: RawNode[] | undefined, rama: string, esPrincipal: boolean): RoadmapNode[] {
+// `usedIds` is shared across every buildNodes() call for one roadmap (see
+// the handler below) and mutated as nodes are accepted — with the volume
+// raised to 15-20 courses per roadmap, the model repeating a course
+// (within a branch, or the same id showing up in both rama_principal and a
+// complementary branch) got a lot more likely than it was at 4-7, so this
+// is a real safeguard now, not defensive-for-its-own-sake. First occurrence
+// wins; a later duplicate is silently dropped rather than shown twice on
+// the map.
+function buildNodes(
+  raw: RawNode[] | undefined,
+  rama: string,
+  esPrincipal: boolean,
+  usedIds: Set<string>,
+): RoadmapNode[] {
   return (raw ?? [])
     .map((n) => {
+      if (usedIds.has(n.id)) return null;
       const curso = getCourseById(n.id);
-      return curso ? { id: n.id, orden: n.orden, justificacion: n.justificacion, curso, rama, esPrincipal } : null;
+      if (!curso) return null;
+      usedIds.add(n.id);
+      return { id: n.id, orden: n.orden, justificacion: n.justificacion, curso, rama, esPrincipal };
     })
     .filter((n): n is RoadmapNode => n !== null)
     .sort((a, b) => a.orden - b.orden);
@@ -109,8 +125,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Never trust the model's course ids — filter out anything that isn't
     // in the real catalog, then re-sort each branch by its own orden.
+    // `usedIds` is shared across every buildNodes() call below (rama
+    // principal first, then each complementary branch in order) so no
+    // course id can appear twice anywhere in the roadmap — see buildNodes's
+    // own doc comment for why this matters more now than it used to.
+    const usedIds = new Set<string>();
     const ramaPrincipalNombre = parsed.rama_principal?.nombre?.trim() || "Tu especialización";
-    const ramaPrincipalNodos = buildNodes(parsed.rama_principal?.nodos, ramaPrincipalNombre, true);
+    const ramaPrincipalNodos = buildNodes(parsed.rama_principal?.nodos, ramaPrincipalNombre, true, usedIds);
 
     if (ramaPrincipalNodos.length === 0) {
       res.status(502).json({ error: "El modelo no devolvió ningún curso válido del catálogo. Probá de nuevo." });
@@ -127,7 +148,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const nombre = r.nombre?.trim();
         const naceDesde = r.nace_desde;
         if (!nombre || !naceDesde || !principalIds.has(naceDesde)) return null;
-        const nodos = buildNodes(r.nodos, nombre, false);
+        const nodos = buildNodes(r.nodos, nombre, false, usedIds);
         if (nodos.length === 0) return null;
         return { nombre, naceDesde, nodos };
       })

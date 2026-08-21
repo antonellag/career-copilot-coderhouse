@@ -252,6 +252,9 @@ function MapaBody({
             comment for why React Flow was kept over the reference's raw
             mouse-event pan/zoom implementation. */}
         <Background variant={BackgroundVariant.Lines} gap={40} color="#E2E2E2" />
+        <Panel position="top-left">
+          <RoadmapLegend />
+        </Panel>
         <Panel position="top-right">
           <div className="relative">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
@@ -388,6 +391,60 @@ function ToolbarButton({
     >
       {children}
     </button>
+  );
+}
+
+// Explains what "rama principal" vs. "rama complementaria" actually mean at
+// a glance — real feedback: with the roadmap's volume raised from 4-7 to
+// 15-20 courses, it got a lot harder to tell which cards are the core
+// specialization and which are optional side branches, and how a branch
+// relates to the trunk node it forks from. Collapsible (starts open) so it
+// doesn't permanently eat canvas space once someone's already seen it once.
+function RoadmapLegend() {
+  const [open, setOpen] = useState(true);
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label="Mostrar leyenda del mapa"
+        className="flex h-9 w-9 items-center justify-center rounded-full border border-border-soft bg-white text-ink-muted shadow-[0_4px_16px_rgba(0,0,0,0.06)] transition-colors hover:text-ink"
+      >
+        <HelpCircle className="h-4 w-4" />
+      </button>
+    );
+  }
+
+  return (
+    <div className="w-64 rounded-2xl border border-border-soft bg-white p-4 shadow-[0_4px_16px_rgba(0,0,0,0.06)]">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-xs text-ink">Cómo leer tu mapa</span>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          aria-label="Ocultar leyenda"
+          className="text-ink-muted hover:text-ink"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      <div className="flex flex-col gap-2">
+        <div className="flex items-start gap-2">
+          <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-brand-hover" />
+          <p className="font-['Inter:Regular',sans-serif] text-[11px] leading-snug text-ink-muted">
+            <span className="font-medium text-ink">Camino principal</span> — tu especialización central, en orden.
+          </p>
+        </div>
+        <div className="flex items-start gap-2">
+          <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full border-2 border-dashed border-purple-500" />
+          <p className="font-['Inter:Regular',sans-serif] text-[11px] leading-snug text-ink-muted">
+            <span className="font-medium text-ink">Ramas complementarias</span> (moradas) — opcionales, nacen de un
+            curso puntual del camino principal. La línea punteada te muestra desde dónde.
+          </p>
+        </div>
+      </div>
+    </div>
   );
 }
 
