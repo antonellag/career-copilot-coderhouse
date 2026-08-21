@@ -115,7 +115,7 @@ export function CvView({
                 type="button"
                 onClick={() => avatarInputRef.current?.click()}
                 aria-label="Cambiar foto de perfil"
-                className="group relative flex shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-ink/10 text-ink-muted"
+                className="group relative flex shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-[#e4e4e4] text-ink-muted"
                 style={{ width: 88, height: 88, marginTop: -44 }}
               >
                 {photos.avatar ? (

@@ -1,4 +1,17 @@
-import { BookOpen, CalendarDays, Clock, Search } from "lucide-react";
+import {
+  BookOpen,
+  Briefcase,
+  CalendarDays,
+  Clock,
+  Code2,
+  Database,
+  Megaphone,
+  Package,
+  Palette,
+  Search,
+  Sparkles,
+  Users,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { CATALOG, categoriesFor, type CatalogCourse, type CourseType } from "@/lib/catalogClient";
 
@@ -200,9 +213,32 @@ function categoryColor(categoria: string): { bg: string; text: string } {
   return CATEGORY_COLORS[categoria] ?? { bg: "#f3f4f6", text: "#374151" };
 }
 
+// A category-specific icon (not always the same generic book) plus a
+// faint repeated-dot texture behind it — real feedback: the flat
+// color+centered-icon placeholder read as "broken/missing image" next to
+// cards that do have a real photo, especially since 29 of 57 courses
+// (every on-demand one) never will. Same treatment as the map's course
+// nodes (src/pages/Plataforma.tsx's PlaceholderHeader) so both read as one
+// system.
+const CATEGORY_ICONS: Record<string, typeof BookOpen> = {
+  "Inteligencia Artificial": Sparkles,
+  "Programación": Code2,
+  "Diseño": Palette,
+  Data: Database,
+  "Marketing Digital": Megaphone,
+  Negocios: Briefcase,
+  Producto: Package,
+  "Softs Skills": Users,
+};
+
+function categoryIcon(categoria: string): typeof BookOpen {
+  return CATEGORY_ICONS[categoria] ?? BookOpen;
+}
+
 function CourseCard({ course }: { course: CatalogCourse }) {
   const hasPrice = course.precioFinal !== undefined;
   const catColor = categoryColor(course.categoria);
+  const Icon = categoryIcon(course.categoria);
   return (
     <div
       className="flex flex-col overflow-hidden rounded-[20px] border border-border-soft bg-white"
@@ -215,8 +251,17 @@ function CourseCard({ course }: { course: CatalogCourse }) {
         {course.imagen ? (
           <img src={course.imagen} alt={course.nombre} className="h-full w-full object-cover" loading="lazy" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center">
-            <BookOpen className="h-8 w-8" style={{ color: catColor.text }} />
+          <div className="relative flex h-full w-full items-center justify-center">
+            <div
+              className="absolute inset-0 opacity-40"
+              style={{
+                backgroundImage: `radial-gradient(${catColor.text}33 1px, transparent 1px)`,
+                backgroundSize: "14px 14px",
+              }}
+            />
+            <span className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-white/70 shadow-sm">
+              <Icon className="h-6 w-6" style={{ color: catColor.text }} />
+            </span>
           </div>
         )}
         <div className="pointer-events-none absolute inset-x-3 top-3 flex items-start justify-between gap-2">

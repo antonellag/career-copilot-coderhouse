@@ -18,6 +18,7 @@ import {
   AlertCircle,
   BarChart3,
   BookOpen,
+  Briefcase,
   CalendarDays,
   Check,
   CheckCircle2,
@@ -25,6 +26,8 @@ import {
   ChevronUp,
   Circle,
   Clock,
+  Code2,
+  Database,
   FileText,
   Hand,
   HelpCircle,
@@ -32,15 +35,20 @@ import {
   Loader2,
   Map as MapIcon,
   Maximize,
+  Megaphone,
   MousePointer2,
   Minus,
   Move,
+  Package,
+  Palette,
   Plus as PlusIcon,
   Redo2,
   Search,
   ShieldCheck,
+  Sparkles,
   Undo2,
   UserRound,
+  Users,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -1386,8 +1394,13 @@ function TriggerCard({
             instead of being vertically centered against the avatar and
             riding up into it. */}
         <div className="-mt-6 mb-3 flex items-end gap-2.5">
+          {/* Solid gray fallback, not a semi-transparent one — real
+              feedback: an alpha-based fill (bg-ink/10) looked inconsistent
+              here specifically because the avatar overlaps the cover above
+              it (that negative margin), so a translucent fallback rendered
+              differently over the dark cover vs. the white body below it. */}
           <span
-            className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border-[3px] border-white bg-ink/10 text-ink-muted shadow-[0_2px_8px_rgba(0,0,0,0.15)]"
+            className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border-[3px] border-white bg-[#e4e4e4] text-ink-muted shadow-[0_2px_8px_rgba(0,0,0,0.15)]"
           >
             {photos.avatar ? <img src={photos.avatar} alt="" className="h-full w-full object-cover" /> : <UserRound className="h-5 w-5" />}
           </span>
@@ -1518,6 +1531,48 @@ function categoryColor(categoria: string): { bg: string; text: string } {
   return CATEGORY_COLORS[categoria] ?? { bg: "#f3f4f6", text: "#374151" };
 }
 
+// A category-specific icon (not always the same generic book) plus a
+// faint repeated-icon texture behind it — real feedback: the flat
+// color+centered-icon placeholder read as "broken/missing image" next to
+// cards that do have a real photo, especially since 29 of 57 courses
+// (every on-demand one) never will. This doesn't need a real image to
+// still look like an intentional design choice.
+const CATEGORY_ICONS: Record<string, typeof BookOpen> = {
+  "Inteligencia Artificial": Sparkles,
+  "Programación": Code2,
+  "Diseño": Palette,
+  Data: Database,
+  "Marketing Digital": Megaphone,
+  Negocios: Briefcase,
+  Producto: Package,
+  "Softs Skills": Users,
+};
+
+function categoryIcon(categoria: string): typeof BookOpen {
+  return CATEGORY_ICONS[categoria] ?? BookOpen;
+}
+
+function PlaceholderHeader({ categoria, iconClassName }: { categoria: string; iconClassName: string }) {
+  const catColor = categoryColor(categoria);
+  const Icon = categoryIcon(categoria);
+  return (
+    <div className="absolute inset-0" style={{ background: catColor.bg }}>
+      <div
+        className="absolute inset-0 opacity-40"
+        style={{
+          backgroundImage: `radial-gradient(${catColor.text}33 1px, transparent 1px)`,
+          backgroundSize: "14px 14px",
+        }}
+      />
+      <div className="relative flex h-full items-center justify-center">
+        <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/70 shadow-sm">
+          <Icon className={iconClassName} style={{ color: catColor.text }} />
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function courseNodeLabel(node: RoadmapNode, status: CourseStatus): React.ReactNode {
   const catColor = categoryColor(node.curso.categoria);
   return (
@@ -1540,10 +1595,7 @@ function courseNodeLabel(node: RoadmapNode, status: CourseStatus): React.ReactNo
         {node.curso.imagen ? (
           <img src={node.curso.imagen} alt="" className="absolute inset-0 h-full w-full object-cover" />
         ) : (
-          <>
-            <div className="absolute inset-0" style={{ background: catColor.bg }} />
-            <BookOpen className="relative h-6 w-6" style={{ color: catColor.text }} />
-          </>
+          <PlaceholderHeader categoria={node.curso.categoria} iconClassName="h-5 w-5" />
         )}
         {/* Always a white pill, never catColor.bg — when there's no image
             the header itself IS catColor.bg, so a same-color pill was
