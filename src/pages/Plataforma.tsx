@@ -1232,9 +1232,13 @@ function courseNodeLabel(node: RoadmapNode, status: CourseStatus): React.ReactNo
             <BookOpen className="relative h-6 w-6" style={{ color: catColor.text }} />
           </>
         )}
+        {/* Always a white pill, never catColor.bg — when there's no image
+            the header itself IS catColor.bg, so a same-color pill was
+            invisible (real bug, flagged live: looked like plain text, not
+            a badge). White stays visibly a pill either way. */}
         <span
-          className="absolute left-2 top-2 rounded-pill px-2 py-0.5 font-['Inter:SemiBold',sans-serif] text-[10px] font-semibold"
-          style={{ background: catColor.bg, color: catColor.text }}
+          className="absolute left-2 top-2 rounded-pill bg-white px-2 py-0.5 font-['Inter:SemiBold',sans-serif] text-[10px] font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.15)]"
+          style={{ color: catColor.text }}
         >
           {node.curso.categoria}
         </span>

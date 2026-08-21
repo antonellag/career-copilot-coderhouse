@@ -220,9 +220,13 @@ function CourseCard({ course }: { course: CatalogCourse }) {
           </div>
         )}
         <div className="pointer-events-none absolute inset-x-3 top-3 flex items-start justify-between gap-2">
+          {/* Always a white pill, never catColor.bg — when there's no
+              image the block behind it IS catColor.bg, so a same-color
+              pill was invisible (real bug, flagged live against the map's
+              identical badge). White stays visibly a pill either way. */}
           <span
-            className="inline-flex items-center rounded-pill px-2.5 py-0.5 font-['Inter:SemiBold',sans-serif] text-xs font-semibold"
-            style={{ background: catColor.bg, color: catColor.text }}
+            className="inline-flex items-center rounded-pill bg-white px-2.5 py-0.5 font-['Inter:SemiBold',sans-serif] text-xs font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.15)]"
+            style={{ color: catColor.text }}
           >
             {course.categoria}
           </span>
