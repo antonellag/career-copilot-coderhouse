@@ -760,7 +760,12 @@ function withManualCourse(roadmap: Roadmap, courseId: string, tipo: RoadmapNodeT
     id: course.id,
     orden: currentNodos.length + 1,
     justificacion: "Lo agregaste vos desde el catálogo — no tiene una razón generada por la IA.",
-    curso: { id: course.id, nombre: course.nombre, categoria: course.categoria, tipo: course.tipo },
+    // The whole CatalogCourse, not just id/nombre/categoria/tipo — real
+    // bug, flagged live: picking only those 4 fields silently dropped the
+    // real imagen/precio/fecha/horario data this course actually has,
+    // making a manually-added course look like a placeholder even when
+    // the catalog had a real photo and price for it all along.
+    curso: course,
     rama,
     tipo,
   };
