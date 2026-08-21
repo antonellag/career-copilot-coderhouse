@@ -2,6 +2,7 @@ import {
   BookOpen,
   Briefcase,
   CalendarDays,
+  ChevronDown,
   Clock,
   Code2,
   Database,
@@ -129,29 +130,35 @@ export function CatalogoView() {
               />
             </div>
 
-            <select
-              value={categoria}
-              onChange={(e) => setCategoria(e.target.value)}
-              className="rounded-pill border border-border-soft bg-white px-5 py-3 font-['Inter:Regular',sans-serif] text-sm text-ink outline-none"
-            >
-              {categoriaOptions.map((c) => (
-                <option key={c} value={c}>
-                  {c === "Todas" ? "Categoría" : c}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                value={categoria}
+                onChange={(e) => setCategoria(e.target.value)}
+                className="appearance-none rounded-pill border border-border-soft bg-white py-3 pl-5 pr-10 font-['Inter:Regular',sans-serif] text-sm text-ink outline-none"
+              >
+                {categoriaOptions.map((c) => (
+                  <option key={c} value={c}>
+                    {c === "Todas" ? "Categoría" : c}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
+            </div>
 
             {/* Decorative from here down — see doc comment. */}
-            <select
-              value={nivel}
-              onChange={(e) => setNivel(e.target.value)}
-              className="rounded-pill border border-border-soft bg-white px-5 py-3 font-['Inter:Regular',sans-serif] text-sm text-ink-muted outline-none"
-            >
-              <option>Todos los niveles</option>
-              <option>Principiante</option>
-              <option>Intermedio</option>
-              <option>Avanzado</option>
-            </select>
+            <div className="relative">
+              <select
+                value={nivel}
+                onChange={(e) => setNivel(e.target.value)}
+                className="appearance-none rounded-pill border border-border-soft bg-white py-3 pl-5 pr-10 font-['Inter:Regular',sans-serif] text-sm text-ink-muted outline-none"
+              >
+                <option>Todos los niveles</option>
+                <option>Principiante</option>
+                <option>Intermedio</option>
+                <option>Avanzado</option>
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
+            </div>
             <button
               type="button"
               onClick={() => setMasVendidos((v) => !v)}

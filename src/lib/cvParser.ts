@@ -20,6 +20,8 @@ export type ParsedCv = {
   nombre: string | null;
   /** Real, scanned from anywhere in the CV text — null when there's no CV (the chat-answers fallback never collects an email). */
   email: string | null;
+  /** Real URLs (personal site, portfolio, GitHub, Behance...) scanned from anywhere in the CV text — the "Destacados" section's source. Empty when there's no CV. */
+  links: string[];
   /** Free-text summary — only populated when there's no CV to parse (built from the /limbo conversation's own trigger summary). */
   resumen: string | null;
   experiencia: CvExperienceEntry[];
@@ -35,6 +37,12 @@ const HEADER_RE =
 const TOOLS_LINE_RE = /^(herramientas|habilidades|skills|tecnolog[ií]as)\s*:\s*(.+)$/i;
 const NAME_GUESS_RE = /^[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ']+){1,3}$/;
 const EMAIL_RE = /[\w.+-]+@[\w-]+\.[a-zA-Z]{2,}/;
+// The bare-domain alternative (no scheme/www — "behance.net/user",
+// "github.com/user") needs a real TLD allowlist to avoid matching every
+// "word.word" in the text; the (?<!@) lookbehind stops it from also
+// re-capturing the domain half of an email address as its own "link".
+const URL_RE =
+  /\bhttps?:\/\/[^\s,;()<>]+|(?<!@)\b(?:www\.)?[a-zA-Z0-9-]+\.(?:com|net|org|dev|io|app|site|me|co|ar|com\.ar)(?:\/[^\s,;()<>]*)?/gi;
 
 type Section = "experiencia" | "educacion" | "otros";
 
@@ -49,14 +57,19 @@ function parseFromCvText(cvText: string): ParsedCv {
   const emailMatch = cvText.match(EMAIL_RE);
   const email = emailMatch ? emailMatch[0] : null;
 
+  // Trailing punctuation (a link at the end of a sentence often picks up a
+  // stray "." or ",") isn't part of the URL — trim it, then dedupe.
+  const rawLinks = cvText.match(URL_RE) ?? [];
+  const links = [...new Set(rawLinks.map((l) => l.replace(/[.,;:]+$/, "")))];
+
   const lines = cvText
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter(Boolean)
-    // Drop a line that's just the email itself (common right under the
-    // name) — it's already captured above, no need for it to also show
-    // up as a stray bullet in `extra`.
-    .filter((l) => l !== email);
+    // Drop a line that's just the email or a link itself (common right
+    // under the name) — already captured above, no need to also show up
+    // as a stray bullet in `extra`.
+    .filter((l) => l !== email && !links.includes(l.replace(/[.,;:]+$/, "")));
 
   let nombre: string | null = null;
   const experiencia: CvExperienceEntry[] = [];
@@ -106,7 +119,7 @@ function parseFromCvText(cvText: string): ParsedCv {
     }
   }
 
-  return { nombre, email, resumen: null, experiencia, educacion, herramientas, extra };
+  return { nombre, email, links, resumen: null, experiencia, educacion, herramientas, extra };
 }
 
 function guessNameFromAnswers(answers: string[]): string | null {
@@ -123,6 +136,7 @@ export function parseCv(input: ProfileInput | null, fallbackResumen: string | nu
   return {
     nombre: input ? guessNameFromAnswers(input.userAnswers) : null,
     email: null,
+    links: [],
     resumen: fallbackResumen,
     experiencia: [],
     educacion: [],

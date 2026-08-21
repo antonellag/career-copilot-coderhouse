@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Roadmap } from "@/lib/ai/roadmapClient";
 import type { CourseStatus } from "@/lib/roadmapProgress";
+import type { PlataformaTab } from "./PlataformaLayout";
 import { CvView } from "./CvView";
 import { OfertaLaboralView } from "./OfertaLaboralView";
 import { PortfolioView, type PortfolioProject } from "./PortfolioView";
@@ -27,27 +28,25 @@ export function PerfilView({
   roadmap,
   getStatus,
   getCompletedAt,
-  project,
-  setProject,
-  behanceProjects,
-  setBehanceProjects,
+  projects,
+  setProjects,
   disponible,
   setDisponible,
   contacto,
   setContacto,
+  onTabChange,
 }: {
   /** Null when /limbo's "Omitir test" shortcut skipped straight here — CvView/PortfolioView each show their own empty state. */
   roadmap: Roadmap | null;
   getStatus: (id: string) => CourseStatus;
   getCompletedAt: (id: string) => string | undefined;
-  project: PortfolioProject | null;
-  setProject: (p: PortfolioProject | null) => void;
-  behanceProjects: PortfolioProject[];
-  setBehanceProjects: (p: PortfolioProject[]) => void;
+  projects: PortfolioProject[];
+  setProjects: (p: PortfolioProject[]) => void;
   disponible: boolean;
   setDisponible: (v: boolean) => void;
   contacto: string;
   setContacto: (v: string) => void;
+  onTabChange: (tab: PlataformaTab) => void;
 }) {
   const [section, setSection] = useState<Section>("curriculum");
 
@@ -92,17 +91,17 @@ export function PerfilView({
           <PortfolioView
             roadmap={roadmap}
             getStatus={getStatus}
-            project={project}
-            setProject={setProject}
-            behanceProjects={behanceProjects}
-            setBehanceProjects={setBehanceProjects}
+            projects={projects}
+            setProjects={setProjects}
             disponible={disponible}
             setDisponible={setDisponible}
             contacto={contacto}
             setContacto={setContacto}
           />
         )}
-        {section === "oferta" && <OfertaLaboralView />}
+        {section === "oferta" && (
+          <OfertaLaboralView roadmap={roadmap} onGoToPlanCarrera={() => onTabChange("plan-carrera")} />
+        )}
       </div>
     </div>
   );

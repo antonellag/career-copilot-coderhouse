@@ -57,7 +57,7 @@ export function PlataformaLayout({
       {/* Top row */}
       <div className="flex shrink-0 items-center gap-4 border-b border-border-soft bg-white px-5 py-3 sm:px-8">
         <Link to="/" className="flex items-center gap-2 text-ink">
-          <CoderhouseLogo className="h-7 w-auto" />
+          <CoderhouseLogo className="h-9 w-auto" />
         </Link>
 
         <div className="ml-auto flex items-center gap-2 sm:gap-3">

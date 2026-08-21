@@ -133,11 +133,13 @@ import { nextStatus, useRoadmapProgress, type CourseStatus } from "@/lib/roadmap
  *       — see src/lib/profileStore.ts + src/lib/cvParser.ts), no AI
  *       rewrite. Its "Certificaciones Coderhouse" section is derived live
  *       from the same roadmap progress state the map writes to.
- *     - Portfolio: fills itself with one generic placeholder project per
- *       course marked "completado" on the map (same progress state again),
- *       plus the one project the person can add by hand and/or a simulated
- *       Behance import — all three live in the same grid.
- *     - Oferta laboral: placeholder only for now, real design comes later.
+ *     - Portfolio: a Behance-style masonry grid, entirely user-created —
+ *       "Crear un proyecto" offers 3 real sources (own image upload, a
+ *       completed course's final work, or a Behance project link), no
+ *       auto-generated or simulated cards.
+ *     - Oferta laboral: a visual replica of coderhouse.com's "Ticher" job
+ *       chat — one greeting message plus decorative filter pills, no real
+ *       job data or matching behind it.
  *
  *   Catálogo — a browsable replica of the real Coderhouse catalog
  *   (src/lib/catalogClient.ts reads data/course-catalog.json directly,
@@ -151,12 +153,14 @@ import { nextStatus, useRoadmapProgress, type CourseStatus } from "@/lib/roadmap
  * No hard gate on missing roadmap data anymore: /limbo's "Omitir test"
  * shortcut (src/pages/Limbo.tsx) jumps straight here without ever running
  * the conversation, so `loadRoadmap()` can legitimately come back null.
- * Every tab that reads roadmap data (Plan carrera, CV, Portfolio) accepts
- * `roadmap: Roadmap | null` and shows its own "todavía no cargaste nada"
- * empty state instead of the whole page refusing to render — Catálogo,
- * Panel inicio, Novedades and Oferta laboral never needed roadmap data
- * anyway, so they're unaffected either way. No manual-entry forms yet
- * (filling CV/Plan de carrera by hand) — that's a separate, bigger feature.
+ * Every tab that reads roadmap data (Plan carrera, CV, Portfolio, Oferta
+ * laboral) accepts `roadmap: Roadmap | null` and shows its own "todavía no
+ * cargaste nada" empty state instead of the whole page refusing to render —
+ * Catálogo, Panel inicio and Novedades never needed roadmap data anyway, so
+ * they're unaffected either way. Manual entry now exists for the CV's
+ * Destacados/Experiencia/Educación cards (src/lib/profileExtrasStore.ts) —
+ * Plan de carrera itself still has no by-hand equivalent to the
+ * AI-generated roadmap, that's a separate, bigger feature.
  *
  * "Limbo" is this session's internal codename only — it never appears in
  * user-facing copy.
@@ -231,8 +235,7 @@ export default function Plataforma() {
   // Portfolio state lives here (not in PortfolioView) so it survives
   // switching tabs — see PortfolioView's doc comment for why it's fine to
   // lose it on a page refresh.
-  const [project, setProject] = useState<PortfolioProject | null>(null);
-  const [behanceProjects, setBehanceProjects] = useState<PortfolioProject[]>([]);
+  const [projects, setProjects] = useState<PortfolioProject[]>([]);
   const [disponible, setDisponible] = useState(false);
   const [contacto, setContacto] = useState("");
 
@@ -265,14 +268,13 @@ export default function Plataforma() {
           roadmap={roadmap}
           getStatus={getStatus}
           getCompletedAt={getCompletedAt}
-          project={project}
-          setProject={setProject}
-          behanceProjects={behanceProjects}
-          setBehanceProjects={setBehanceProjects}
+          projects={projects}
+          setProjects={setProjects}
           disponible={disponible}
           setDisponible={setDisponible}
           contacto={contacto}
           setContacto={setContacto}
+          onTabChange={setTab}
         />
       )}
       {tab === "novedades" && <NovedadesView />}
@@ -1287,8 +1289,9 @@ function DetailPanel({
           isn't the real "activate this course" action anymore (that's
           Comprar above, decorative like everywhere else since there's no
           real payment flow), it only exists so the CV's "Certificaciones
-          Coderhouse" and Portfolio's auto-generated projects (both driven
-          by roadmapProgress.ts) still have a way to demo. */}
+          Coderhouse" and Portfolio's "trabajo final de un curso" project
+          option (both driven by roadmapProgress.ts) have a completed
+          course to point to. */}
       <div className="px-5 py-5">
         <p className="mb-2 flex items-center gap-2 font-['Inter:Regular',sans-serif] text-xs text-ink-muted">
           <StatusIcon status={status} />
