@@ -32,6 +32,7 @@ import {
   Maximize,
   MousePointer2,
   Minus,
+  Move,
   Plus as PlusIcon,
   Redo2,
   Search,
@@ -626,6 +627,20 @@ function RoadmapLegend() {
             opcionales, salen directo de tu perfil, igual que el camino principal.
           </p>
         </div>
+      </div>
+
+      {/* Real feedback: drag-to-reorder worked once someone tried it, but
+          nothing on screen hinted it was possible or explained what
+          dragging actually does (changes the connection order, not just
+          the visual spot) — this is the one thing on the map that's an
+          interaction, not just something to read, so it gets called out
+          separately from the color legend above. */}
+      <div className="mt-3 flex items-start gap-2 border-t border-border-soft pt-3">
+        <Move className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-muted" />
+        <p className="font-['Inter:Regular',sans-serif] text-[11px] leading-snug text-ink-muted">
+          <span className="font-medium text-ink">¿Querés cambiar el orden?</span> Arrastrá una card al lugar
+          que querés que ocupe — se reconecta sola.
+        </p>
       </div>
     </div>
   );
