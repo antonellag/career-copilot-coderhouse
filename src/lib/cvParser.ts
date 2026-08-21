@@ -18,6 +18,8 @@ export type CvExperienceEntry = { puesto: string; empresa: string; fechas: strin
 
 export type ParsedCv = {
   nombre: string | null;
+  /** Real, scanned from anywhere in the CV text — null when there's no CV (the chat-answers fallback never collects an email). */
+  email: string | null;
   /** Free-text summary — only populated when there's no CV to parse (built from the /limbo conversation's own trigger summary). */
   resumen: string | null;
   experiencia: CvExperienceEntry[];
@@ -32,6 +34,7 @@ const HEADER_RE =
   /^(experiencia(\s+laboral)?|educaci[oó]n|formaci[oó]n(\s+acad[eé]mica)?|habilidades|herramientas|skills|tecnolog[ií]as)\s*:?$/i;
 const TOOLS_LINE_RE = /^(herramientas|habilidades|skills|tecnolog[ií]as)\s*:\s*(.+)$/i;
 const NAME_GUESS_RE = /^[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ']+){1,3}$/;
+const EMAIL_RE = /[\w.+-]+@[\w-]+\.[a-zA-Z]{2,}/;
 
 type Section = "experiencia" | "educacion" | "otros";
 
@@ -43,10 +46,17 @@ function headerToSection(word: string): Section {
 }
 
 function parseFromCvText(cvText: string): ParsedCv {
+  const emailMatch = cvText.match(EMAIL_RE);
+  const email = emailMatch ? emailMatch[0] : null;
+
   const lines = cvText
     .split(/\r?\n/)
     .map((l) => l.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    // Drop a line that's just the email itself (common right under the
+    // name) — it's already captured above, no need for it to also show
+    // up as a stray bullet in `extra`.
+    .filter((l) => l !== email);
 
   let nombre: string | null = null;
   const experiencia: CvExperienceEntry[] = [];
@@ -96,7 +106,7 @@ function parseFromCvText(cvText: string): ParsedCv {
     }
   }
 
-  return { nombre, resumen: null, experiencia, educacion, herramientas, extra };
+  return { nombre, email, resumen: null, experiencia, educacion, herramientas, extra };
 }
 
 function guessNameFromAnswers(answers: string[]): string | null {
@@ -112,6 +122,7 @@ export function parseCv(input: ProfileInput | null, fallbackResumen: string | nu
 
   return {
     nombre: input ? guessNameFromAnswers(input.userAnswers) : null,
+    email: null,
     resumen: fallbackResumen,
     experiencia: [],
     educacion: [],
