@@ -40,7 +40,7 @@ import { PanelInicioView } from "@/components/plataforma/PanelInicioView";
 import { PerfilView } from "@/components/plataforma/PerfilView";
 import { PlataformaLayout, type PlataformaTab } from "@/components/plataforma/PlataformaLayout";
 import type { PortfolioProject } from "@/components/plataforma/PortfolioView";
-import { loadRoadmap, type Roadmap, type RoadmapNode } from "@/lib/ai/roadmapClient";
+import { loadRoadmap, type Roadmap, type RoadmapNode, type RoadmapNodeTipo } from "@/lib/ai/roadmapClient";
 import { parseCv } from "@/lib/cvParser";
 import { loadProfileInput } from "@/lib/profileStore";
 import { nextStatus, useRoadmapProgress, type CourseStatus } from "@/lib/roadmapProgress";
@@ -394,12 +394,14 @@ function ToolbarButton({
   );
 }
 
-// Explains what "rama principal" vs. "rama complementaria" actually mean at
-// a glance — real feedback: with the roadmap's volume raised from 4-7 to
-// 15-20 courses, it got a lot harder to tell which cards are the core
-// specialization and which are optional side branches, and how a branch
-// relates to the trunk node it forks from. Collapsible (starts open) so it
-// doesn't permanently eat canvas space once someone's already seen it once.
+// Explains the 3 branch kinds at a glance — real feedback: with the
+// roadmap's volume raised from 4-7 to 15-20 courses, it got a lot harder to
+// tell which cards are the core specialization vs. optional side branches,
+// and the repaso/principal/complementaria split (all 3 forking straight off
+// the profile card now, see buildFlow's own doc comment) needs a legend to
+// read clearly rather than being guessed from card color alone. Collapsible
+// (starts open) so it doesn't permanently eat canvas space once someone's
+// already seen it once.
 function RoadmapLegend() {
   const [open, setOpen] = useState(true);
 
@@ -437,10 +439,17 @@ function RoadmapLegend() {
           </p>
         </div>
         <div className="flex items-start gap-2">
+          <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full border-2 border-dashed" style={{ borderColor: "#0ea5e9" }} />
+          <p className="font-['Inter:Regular',sans-serif] text-[11px] leading-snug text-ink-muted">
+            <span className="font-medium text-ink">¿Necesitás repasar algo?</span> (celeste) — cosas que ya sabés
+            hacer, por si querés un repaso. No es obligatorio.
+          </p>
+        </div>
+        <div className="flex items-start gap-2">
           <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full border-2 border-dashed border-purple-500" />
           <p className="font-['Inter:Regular',sans-serif] text-[11px] leading-snug text-ink-muted">
-            <span className="font-medium text-ink">Ramas complementarias</span> (moradas) — opcionales, nacen de un
-            curso puntual del camino principal. La línea punteada te muestra desde dónde.
+            <span className="font-medium text-ink">Ramas complementarias</span> (moradas) — habilidades extra
+            opcionales, salen directo de tu perfil, igual que el camino principal.
           </p>
         </div>
       </div>
@@ -509,8 +518,11 @@ function DetailPanel({
           (price, schedule, difficulty, syllabus): course-catalog.json only
           has id/nombre/categoria/tipo right now, so that's all this shows. */}
       <div className="border-b border-border-soft px-5 py-5">
-        {!node.esPrincipal && (
-          <span className="mb-2 inline-block rounded-pill bg-purple-100 px-2.5 py-1 font-['Inter:Regular',sans-serif] text-[11px] uppercase tracking-wide text-purple-700">
+        {node.tipo !== "principal" && (
+          <span
+            className="mb-2 inline-block rounded-pill px-2.5 py-1 font-['Inter:Regular',sans-serif] text-[11px] uppercase tracking-wide"
+            style={branchBadgeStyle(node.tipo)}
+          >
             {node.rama}
           </span>
         )}
@@ -717,8 +729,22 @@ function AccordionRow({
   );
 }
 
-function courseNodeStyle(esPrincipal: boolean, status: CourseStatus): React.CSSProperties {
-  const accent = esPrincipal ? "var(--color-brand-hover, #ff5a36)" : "#8b5cf6";
+// Third color for "repaso" nodes (sky blue) alongside the existing
+// principal (orange) / complementaria (purple) pair — see RoadmapLegend
+// for where these are explained to the person.
+const BRANCH_ACCENT: Record<RoadmapNodeTipo, string> = {
+  principal: "var(--color-brand-hover, #ff5a36)",
+  repaso: "#0ea5e9",
+  complementaria: "#8b5cf6",
+};
+
+function branchBadgeStyle(tipo: RoadmapNodeTipo): React.CSSProperties {
+  if (tipo === "repaso") return { background: "#e0f2fe", color: "#0369a1" };
+  return { background: "#ede9fe", color: "#7c3aed" };
+}
+
+function courseNodeStyle(tipo: RoadmapNodeTipo, status: CourseStatus): React.CSSProperties {
+  const accent = BRANCH_ACCENT[tipo];
   return {
     background: "white",
     border: `1.5px solid ${status === "completado" ? "#22c55e" : accent}`,
@@ -789,11 +815,15 @@ function courseNodeLabel(node: RoadmapNode, status: CourseStatus): React.ReactNo
       </div>
 
       <div className="px-3.5 py-3">
-        {/* Real branch name (e.g. "Complemento de producto"), not a
-            generic "Complementario" tag — the point is you can tell
-            which orientation this side branch represents at a glance. */}
-        {!node.esPrincipal && (
-          <span className="mb-1.5 inline-block rounded-pill bg-purple-100 px-2 py-0.5 font-['Inter:Regular',sans-serif] text-[10px] text-purple-700">
+        {/* Real branch name (e.g. "Complemento de producto", or the fixed
+            "¿Necesitás repasar algo?" for repaso nodes), not a generic
+            "Complementario" tag — the point is you can tell which branch
+            this card belongs to at a glance. */}
+        {node.tipo !== "principal" && (
+          <span
+            className="mb-1.5 inline-block rounded-pill px-2 py-0.5 font-['Inter:Regular',sans-serif] text-[10px]"
+            style={branchBadgeStyle(node.tipo)}
+          >
             {node.rama}
           </span>
         )}
@@ -822,7 +852,8 @@ function buildFlow(
   const courseGapX = 280;
   const courseStartX = 380; // trigger card is 320 wide, wider than the course cards
   const trunkY = 140;
-  const branchRowGap = 190; // vertical distance from the trunk to each complementary branch's row
+  const branchRowGap = 190; // vertical distance between each branch's own row
+  const triggerY = 100;
 
   // Same CV parse CvView.tsx uses, for the card's name/role — real data
   // (or a fallback) only.
@@ -831,72 +862,56 @@ function buildFlow(
 
   nodes.push({
     id: "trigger",
-    position: { x: 0, y: 100 },
+    position: { x: 0, y: triggerY },
     data: { label: <TriggerCard roadmap={roadmap} cv={cv} onViewPerfil={onViewPerfil} /> },
     style: TRIGGER_NODE_STYLE,
     sourcePosition: Position.Right,
   });
 
-  // Rama principal — the trunk, horizontal, sequential from the trigger.
-  const principalXById = new Map<string, number>();
-  roadmap.ramaPrincipal.nodos.forEach((node, i) => {
-    const x = courseStartX + i * courseGapX;
-    principalXById.set(node.id, x);
-    const status = getStatus(node.id);
-    nodes.push({
-      id: node.id,
-      position: { x, y: trunkY },
-      data: { label: courseNodeLabel(node, status) },
-      style: courseNodeStyle(true, status),
-      sourcePosition: Position.Right,
-      targetPosition: Position.Left,
-    });
-
-    const source = i === 0 ? "trigger" : roadmap.ramaPrincipal.nodos[i - 1].id;
-    edges.push({
-      id: `e-${source}-${node.id}`,
-      source,
-      target: node.id,
-      type: "smoothstep",
-      markerStart: EDGE_DOT_MARKER,
-      markerEnd: EDGE_DOT_MARKER,
-      style: { stroke: "#1a1a1a", strokeWidth: 1.5 },
-    });
-  });
-
-  // Ramas complementarias — each one forks off its own row below the
-  // trunk, starting under the exact rama_principal node it nace_desde,
-  // never spliced into the main sequence. The fork edge is labeled with
-  // the branch's own name (not a truncated justificación) so the "this is
-  // an optional side path called X" reading is immediate at the fork.
-  roadmap.ramasComplementarias.forEach((rama, branchIndex) => {
-    const originX = principalXById.get(rama.naceDesde ?? "") ?? courseStartX;
-    const branchY = trunkY + branchRowGap * (branchIndex + 1);
-
+  // Every branch — rama_principal, rama_repaso, and each rama
+  // complementaria — forks directly off the trigger card now (never off
+  // each other, never off a node mid-chain): real feedback that seeing 3
+  // paths fan out from the one profile card reads far clearer than one
+  // branch sprouting from the middle of another. Each gets its own
+  // horizontal row, all starting at the same x; only the fork edge (the
+  // branch's first node) is dashed/colored to read as "optional", the
+  // rest of a branch's internal edges stay solid.
+  function placeBranch(rama: { nodos: RoadmapNode[] }, y: number, tipo: RoadmapNodeTipo) {
+    const accent = BRANCH_ACCENT[tipo];
     rama.nodos.forEach((node, i) => {
-      const x = originX + i * courseGapX;
+      const x = courseStartX + i * courseGapX;
       const status = getStatus(node.id);
       nodes.push({
         id: node.id,
-        position: { x, y: branchY },
+        position: { x, y },
         data: { label: courseNodeLabel(node, status) },
-        style: courseNodeStyle(false, status),
+        style: courseNodeStyle(tipo, status),
         sourcePosition: Position.Right,
         targetPosition: Position.Left,
       });
 
       const isFork = i === 0;
-      const source = isFork ? rama.naceDesde! : rama.nodos[i - 1].id;
+      const source = isFork ? "trigger" : rama.nodos[i - 1].id;
       edges.push({
         id: `e-${source}-${node.id}`,
         source,
         target: node.id,
         type: "smoothstep",
-        markerStart: EDGE_DOT_MARKER_PURPLE,
-        markerEnd: EDGE_DOT_MARKER_PURPLE,
-        style: { stroke: "#8b5cf6", strokeWidth: 1.5, strokeDasharray: isFork ? "4 3" : undefined },
+        markerStart: tipo === "principal" ? EDGE_DOT_MARKER : EDGE_DOT_MARKER_COLORED(accent),
+        markerEnd: tipo === "principal" ? EDGE_DOT_MARKER : EDGE_DOT_MARKER_COLORED(accent),
+        style: {
+          stroke: tipo === "principal" ? "#1a1a1a" : accent,
+          strokeWidth: 1.5,
+          strokeDasharray: tipo !== "principal" && isFork ? "4 3" : undefined,
+        },
       });
     });
+  }
+
+  placeBranch(roadmap.ramaPrincipal, trunkY, "principal");
+  if (roadmap.ramaRepaso) placeBranch(roadmap.ramaRepaso, trunkY - branchRowGap, "repaso");
+  roadmap.ramasComplementarias.forEach((rama, i) => {
+    placeBranch(rama, trunkY + branchRowGap * (i + 1), "complementaria");
   });
 
   return { nodes, edges };
@@ -909,4 +924,6 @@ function buildFlow(
 // node/badge and in the click-through detail panel, so nothing is lost by
 // dropping the label.
 const EDGE_DOT_MARKER = { type: MarkerType.ArrowClosed, color: "#1a1a1a", width: 10, height: 10 } as const;
-const EDGE_DOT_MARKER_PURPLE = { type: MarkerType.ArrowClosed, color: "#8b5cf6", width: 10, height: 10 } as const;
+function EDGE_DOT_MARKER_COLORED(color: string) {
+  return { type: MarkerType.ArrowClosed, color, width: 10, height: 10 } as const;
+}

@@ -18,28 +18,33 @@ export type RoadmapCourse = {
   tipo: "curso" | "carrera" | "diplomatura" | "on-demand";
 };
 
+/** Which of the 3 branches a node belongs to — see Roadmap's own doc comment for what each means. */
+export type RoadmapNodeTipo = "principal" | "repaso" | "complementaria";
+
 export type RoadmapNode = {
   id: string;
   orden: number;
   justificacion: string;
   curso: RoadmapCourse;
-  /** Name of the branch this node belongs to — ramaPrincipal's nombre, or a complementary branch's. */
+  /** Name of the branch this node belongs to — ramaPrincipal's nombre, ramaRepaso's, or a complementary branch's. */
   rama: string;
-  esPrincipal: boolean;
+  tipo: RoadmapNodeTipo;
 };
 
 export type RoadmapBranch = {
   nombre: string;
-  /** Only set on complementary branches — id of the ramaPrincipal node it forks from. */
-  naceDesde?: string;
   nodos: RoadmapNode[];
 };
 
 export type Roadmap = {
   trigger: RoadmapTrigger;
+  /** What the person genuinely needs to learn/grow into their goal — never courses they already know (those go in ramaRepaso instead). */
   ramaPrincipal: RoadmapBranch;
+  /** Courses covering skills/tools the CV or conversation already confirms the person has — a refresher, not new learning. Null when there's no real evidence of prior knowledge to point at (never fabricated). */
+  ramaRepaso: RoadmapBranch | null;
+  /** Optional transversal skills (Softs Skills/Negocios/Producto) the person can choose to pursue alongside ramaPrincipal. */
   ramasComplementarias: RoadmapBranch[];
-  /** Flat, ALL nodes (principal + every complementary branch) — for consumers that don't need branch structure (CV certifications, portfolio, the map's search filter, the detail panel's node lookup). */
+  /** Flat, ALL nodes (principal + repaso + every complementary branch) — for consumers that don't need branch structure (CV certifications, portfolio, the map's search filter, the detail panel's node lookup). */
   nodos: RoadmapNode[];
 };
 
