@@ -1217,13 +1217,19 @@ function courseNodeLabel(node: RoadmapNode, status: CourseStatus): React.ReactNo
     <div>
       {/* Header block — real course photo when we have one, category-
           tinted block with an icon otherwise (honest placeholder, no real
-          image exists for the other 29 courses). Badges sit on solid pills
-          (not colored text over the raw image) since several real course
-          photos have their own baked-in text/logos — plain overlaid text
-          was unreadable against those; a pill background stays legible
-          regardless of what's under it. Title lives below in the white
-          body, not overlaid on the image, same reasoning. */}
-      <div className="relative flex h-[76px] items-center justify-center overflow-hidden">
+          image exists for the other 29 courses). aspect-[16/7] matches the
+          real images' own native ratio (they're ~1366x604, same as
+          CatalogoView's CourseCard uses) — a shorter fixed height cropped
+          much harder and, on images that have the course title baked
+          into the graphic itself (several do, e.g. "Management y
+          Liderazgo"'s ship-wheel banner), landed on a slice showing a
+          half-cut fragment of that text. Badges sit on solid pills (not
+          colored text over the raw image) for the same baked-in-text
+          reason — plain overlaid text was unreadable against some of
+          them; a pill background stays legible regardless of what's
+          under it. Title lives below in the white body, not overlaid on
+          the image either. */}
+      <div className="relative flex aspect-[16/7] items-center justify-center overflow-hidden">
         {node.curso.imagen ? (
           <img src={node.curso.imagen} alt="" className="absolute inset-0 h-full w-full object-cover" />
         ) : (
@@ -1305,7 +1311,14 @@ function buildFlow(
   const courseGapX = 280;
   const courseStartX = 380; // trigger card is 320 wide, wider than the course cards
   const trunkY = 140;
-  const branchRowGap = 190; // vertical distance between each branch's own row
+  // Vertical distance between each branch's own row. Real bug, flagged
+  // live with a screenshot: at 190 this was shorter than an actual
+  // rendered card can get once it has a real image header + a 2-line
+  // title + a branch badge + a price row (measured up to ~220px live) —
+  // rows collided, and the overlapping text read as "some cards have the
+  // old design" when it was really two rows' cards drawn on top of each
+  // other. 280 clears every combination with real margin.
+  const branchRowGap = 280;
   const triggerY = 100;
 
   // Same CV parse CvView.tsx uses, for the card's name/role — real data
