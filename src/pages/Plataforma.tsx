@@ -1607,18 +1607,33 @@ function courseNodeLabel(node: RoadmapNode, status: CourseStatus): React.ReactNo
         >
           {node.curso.categoria}
         </span>
-        {status === "en-progreso" && (
+        {/* Top-right slot: whichever is more useful to THIS student right
+            now wins — an in-progress/completado status beats the generic
+            discount badge, they'd otherwise fight for the same corner. */}
+        {status === "en-progreso" ? (
           <span className="absolute right-2 top-2 rounded-pill bg-brand-hover px-2 py-0.5 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-[10px] text-white">
             Ingresar
           </span>
-        )}
-        {status === "completado" && (
+        ) : status === "completado" ? (
           <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-green-500 text-white">
             <Check className="h-3 w-3" strokeWidth={3} />
           </span>
+        ) : (
+          node.curso.descuento && (
+            <span className="absolute right-2 top-2 rounded-pill bg-brand-hover px-2 py-0.5 font-['Inter:Bold',sans-serif] text-[10px] font-bold text-white">
+              {node.curso.descuento}
+            </span>
+          )
         )}
       </div>
 
+      {/* Same content structure CatalogoView's CourseCard uses (fecha/
+          horario, cuotas + precio, Comprar) — real feedback: the map's
+          card used to show a condensed price-only line while Catálogo
+          showed the full breakdown, so a course looked "more complete"
+          in one screen than the other for no real reason. Only the cover
+          (real photo vs. category placeholder) should ever differ between
+          the two now, not the content underneath it. */}
       <div className="px-3.5 py-3">
         <p className="mb-1.5 line-clamp-2 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-sm font-bold leading-tight text-ink">
           {node.curso.nombre}
@@ -1635,12 +1650,60 @@ function courseNodeLabel(node: RoadmapNode, status: CourseStatus): React.ReactNo
             {node.rama}
           </span>
         )}
-        {node.curso.precioFinal !== undefined && (
-          <p className="mb-1.5 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-sm font-bold text-ink">
-            {formatMapPrice(node.curso.precioFinal)}{" "}
-            <span className="font-['Inter:Regular',sans-serif] text-[11px] font-normal text-ink-muted">ARS</span>
-          </p>
+
+        {(node.curso.proximaFecha || node.curso.horario) && (
+          <div className="mb-2 flex flex-col gap-0.5">
+            {node.curso.proximaFecha && (
+              <span className="flex items-center gap-1.5 font-['Inter:Regular',sans-serif] text-xs text-ink">
+                <CalendarDays className="h-3 w-3 shrink-0 text-ink-muted" />
+                Próxima fecha: {node.curso.proximaFecha}
+                {node.curso.extraFechas && (
+                  <span className="text-[10px] text-ink-muted">{node.curso.extraFechas}</span>
+                )}
+              </span>
+            )}
+            {node.curso.horario && (
+              <span className="flex items-center gap-1.5 font-['Inter:Regular',sans-serif] text-xs text-ink">
+                <Clock className="h-3 w-3 shrink-0 text-ink-muted" />
+                {node.curso.horario}
+              </span>
+            )}
+          </div>
         )}
+
+        {node.curso.precioFinal !== undefined ? (
+          <div className="mb-2.5 flex flex-col gap-0.5 leading-tight">
+            {node.curso.cuotas !== undefined && (
+              <span className="font-['Inter:Regular',sans-serif] text-[11px] font-medium text-ink-muted">
+                Hasta {node.curso.cuotas} cuotas sin interés de
+              </span>
+            )}
+            {node.curso.precioCuota !== undefined && (
+              <span className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-base font-extrabold tracking-tight text-ink">
+                {formatMapPrice(node.curso.precioCuota)}{" "}
+                <span className="text-[11px] font-extrabold text-ink">ARS</span>
+              </span>
+            )}
+            <span className="font-['Inter:Regular',sans-serif] text-[11px] text-ink-muted">
+              {node.curso.precioOriginal !== undefined && (
+                <span className="mr-1.5 line-through">{formatMapPrice(node.curso.precioOriginal)} ARS</span>
+              )}
+              Precio final: {formatMapPrice(node.curso.precioFinal)} ARS
+            </span>
+          </div>
+        ) : (
+          <span className="mb-2.5 block font-['Inter:Regular',sans-serif] text-xs text-ink-muted">
+            {tipoLabel(node.curso.tipo)}
+          </span>
+        )}
+
+        <button
+          type="button"
+          className="mb-2 w-full rounded-[10px] border border-border-soft bg-white px-3 py-2 font-['Inter:SemiBold',sans-serif] text-xs font-semibold text-ink transition-colors hover:bg-cream-soft"
+        >
+          Comprar
+        </button>
+
         <span className="flex items-center gap-1 font-['Inter:Regular',sans-serif] text-[11px] text-ink-muted">
           <StatusIcon status={status} />
           {tipoLabel(node.curso.tipo)} · {statusLabel(status)}
@@ -1670,14 +1733,14 @@ function buildFlow(
   const courseGapX = 280;
   const courseStartX = 380; // trigger card is 320 wide, wider than the course cards
   const trunkY = 140;
-  // Vertical distance between each branch's own row. Real bug, flagged
-  // live with a screenshot: at 190 this was shorter than an actual
-  // rendered card can get once it has a real image header + a 2-line
-  // title + a branch badge + a price row (measured up to ~220px live) —
-  // rows collided, and the overlapping text read as "some cards have the
-  // old design" when it was really two rows' cards drawn on top of each
-  // other. 280 clears every combination with real margin.
-  const branchRowGap = 280;
+  // Vertical distance between each branch's own row. Was 190, then 280
+  // (see git history) as course cards grew a real image header + price
+  // row; now bumped again to fit the full CatalogoView-equivalent content
+  // (fecha/horario, cuotas breakdown, Comprar button) that used to only
+  // live in the Catálogo card — a course node can run ~420px tall with
+  // every optional row present, so this needs real headroom, not just
+  // enough for the previous shorter version.
+  const branchRowGap = 460;
   const triggerY = 100;
 
   // Same CV parse CvView.tsx uses, for the card's name/role — real data
