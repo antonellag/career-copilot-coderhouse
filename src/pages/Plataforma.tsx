@@ -6,10 +6,12 @@ import {
   Panel,
   Position,
   ReactFlow,
+  useNodesState,
   useReactFlow,
   useViewport,
   type Edge,
   type Node,
+  type NodeChange,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import {
@@ -240,6 +242,27 @@ export default function Plataforma() {
   );
 }
 
+// Manual node drag positions — separate sessionStorage key from the
+// roadmap itself (career-copilot-roadmap): where someone dragged a card
+// to is a layout preference, not roadmap content, so it doesn't belong
+// inside the AI-authored data. Never keyed by anything beyond node id, so
+// stale entries for a course that got removed just go unused rather than
+// causing an error.
+const NODE_POSITIONS_KEY = "career-copilot-node-positions";
+
+function loadNodePositions(): Record<string, { x: number; y: number }> {
+  try {
+    const raw = sessionStorage.getItem(NODE_POSITIONS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveNodePositions(positions: Record<string, { x: number; y: number }>) {
+  sessionStorage.setItem(NODE_POSITIONS_KEY, JSON.stringify(positions));
+}
+
 function MapaBody({
   roadmap,
   getStatus,
@@ -273,9 +296,60 @@ function MapaBody({
 
   // Recomputed whenever a status changes (getStatus's identity changes with
   // it — see useRoadmapProgress) so completed/in-progress nodes repaint.
-  const { nodes, edges } = useMemo(
+  const { nodes: builtNodes, edges } = useMemo(
     () => buildFlow(roadmap, getStatus, onViewPerfil),
     [roadmap, getStatus, onViewPerfil],
+  );
+
+  // Manual drag-to-reposition, persisted — real feedback: cards looked
+  // draggable (React Flow's own default) but any drag was purely visual,
+  // snapping back on the next render since buildFlow always recomputes
+  // positions fresh from the roadmap data, which has no concept of "where
+  // you dragged this". `positionOverrides` is the missing piece: a plain
+  // id -> {x,y} map, separate from the roadmap itself (dragging a card
+  // isn't roadmap content, it's a layout preference), persisted to its own
+  // sessionStorage key so it survives a refresh the same way everything
+  // else here does.
+  const [positionOverrides, setPositionOverrides] = useState<Record<string, { x: number; y: number }>>(() =>
+    loadNodePositions(),
+  );
+  const nodesWithOverrides = useMemo(
+    () => builtNodes.map((n) => (positionOverrides[n.id] ? { ...n, position: positionOverrides[n.id] } : n)),
+    [builtNodes, positionOverrides],
+  );
+
+  // useNodesState (not a plain useMemo) is what actually makes dragging
+  // feel real: React Flow needs nodes as controlled state it can mutate
+  // via onNodesChange while a drag is in progress, not a value recomputed
+  // from scratch on every render. Re-synced from nodesWithOverrides
+  // whenever the roadmap itself changes (new course added, status
+  // changed) — see the effect below — while an in-progress drag still
+  // lives in this same state in between.
+  const [nodes, setNodes, onNodesChangeInternal] = useNodesState(nodesWithOverrides);
+  useEffect(() => {
+    setNodes(nodesWithOverrides);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodesWithOverrides]);
+
+  const handleNodesChange = useCallback(
+    (changes: NodeChange[]) => {
+      onNodesChangeInternal(changes);
+      // Only persist once a drag actually finishes (dragging: false) —
+      // saving on every intermediate frame while dragging would spam
+      // sessionStorage for no benefit, the live position already updates
+      // visually via onNodesChangeInternal above regardless.
+      const finished = changes.filter(
+        (c): c is Extract<NodeChange, { type: "position" }> => c.type === "position" && !!c.position && c.dragging === false,
+      );
+      if (finished.length === 0) return;
+      setPositionOverrides((prev) => {
+        const next = { ...prev };
+        for (const c of finished) next[c.id] = c.position!;
+        saveNodePositions(next);
+        return next;
+      });
+    },
+    [onNodesChangeInternal],
   );
 
   // Every catalog course not already somewhere on this roadmap (any
@@ -304,6 +378,7 @@ function MapaBody({
       <ReactFlow
         nodes={nodes}
         edges={edges}
+        onNodesChange={handleNodesChange}
         fitView
         fitViewOptions={{ padding: 0.3 }}
         proOptions={{ hideAttribution: true }}
