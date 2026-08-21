@@ -172,20 +172,16 @@ export function CatalogoView() {
             </button>
           </div>
 
-          {section === "on-demand" ? (
-            <OnDemandList courses={filtered} />
-          ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {filtered.map((c) => (
-                <CourseCard key={c.id} course={c} />
-              ))}
-              {filtered.length === 0 && (
-                <p className="col-span-full font-['Inter:Regular',sans-serif] text-sm text-ink-muted">
-                  No encontramos cursos con esos filtros.
-                </p>
-              )}
-            </div>
-          )}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {filtered.map((c) => (
+              <CourseCard key={c.id} course={c} />
+            ))}
+            {filtered.length === 0 && (
+              <p className="col-span-full font-['Inter:Regular',sans-serif] text-sm text-ink-muted">
+                No encontramos cursos con esos filtros.
+              </p>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -342,44 +338,6 @@ function CourseCard({ course }: { course: CatalogCourse }) {
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-// on-demand courses have no price/schedule data — grouped by categoria as
-// numbered lists ("rutas") instead of forcing the pricing-card shape onto
-// data that doesn't have prices.
-function OnDemandList({ courses }: { courses: CatalogCourse[] }) {
-  const grouped = useMemo(() => {
-    const map = new Map<string, CatalogCourse[]>();
-    for (const c of courses) {
-      if (!map.has(c.categoria)) map.set(c.categoria, []);
-      map.get(c.categoria)!.push(c);
-    }
-    return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
-  }, [courses]);
-
-  if (grouped.length === 0) {
-    return (
-      <p className="font-['Inter:Regular',sans-serif] text-sm text-ink-muted">No encontramos cursos con esos filtros.</p>
-    );
-  }
-
-  return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-      {grouped.map(([categoria, items]) => (
-        <div key={categoria} className="rounded-[20px] border border-border-soft bg-white p-5 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
-          <h3 className="mb-3 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-sm text-ink">{categoria}</h3>
-          <ol className="space-y-1.5">
-            {items.map((c, i) => (
-              <li key={c.id} className="flex gap-2 font-['Inter:Regular',sans-serif] text-sm text-ink">
-                <span className="shrink-0 text-ink-muted">{i + 1}.</span>
-                {c.nombre}
-              </li>
-            ))}
-          </ol>
-        </div>
-      ))}
     </div>
   );
 }
