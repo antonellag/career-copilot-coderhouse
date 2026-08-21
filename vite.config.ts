@@ -1,4 +1,4 @@
-import { defineConfig, type HtmlTagDescriptor, type Plugin } from 'vite'
+import { defineConfig, loadEnv, type HtmlTagDescriptor, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'node:path'
@@ -32,6 +32,7 @@ export default defineConfig(({ mode }) => {
       figmaErrorOverlayReplay(),
       figmaReactRefreshBoundaryFallback(),
       figmaMakeKitPlugin({ storiesGlob: '/src/**/*.stories.{ts,tsx,js,jsx}' }),
+      vercelApiDevMiddleware(),
     ],
     resolve: {
       alias: {
@@ -356,6 +357,82 @@ function figmaMakeKitPlugin(options: { storiesGlob: string | string[] }): Plugin
         try {
           res.setHeader('Content-Type', 'text/html')
           res.end(await server.transformIndexHtml(url, HTML_BOOTSTRAP))
+        } catch (err) {
+          next(err as Error)
+        }
+      })
+    },
+  }
+}
+
+/**
+ * Serves api/*.ts's Vercel serverless functions directly under `npm run
+ * dev` (plain `vite`, no `vercel dev`/CLI auth needed) by loading each
+ * handler through Vite's own SSR module loader and adapting the request/
+ * response to the minimal subset of the Vercel Node runtime those handlers
+ * actually use (`req.body` parsed JSON, `res.status().json()`).
+ *
+ * Without this, POSTing to /api/chat or /api/roadmap while running the
+ * plain Vite dev server 404s — there's no server there to answer it, since
+ * Vercel only wires those files up as functions during `vercel dev` or in
+ * a real deployment. `.claude/launch.json` (and this repo's own docs) run
+ * `npm run dev`, so that's the server this needs to work under, not
+ * `vercel dev` — this makes both the same server.
+ *
+ * Dev-only (`apply: 'serve'`) — `vercel build`/production deploys still
+ * use the real Vercel functions runtime for api/*.ts, this plugin never
+ * ships or runs there.
+ */
+function vercelApiDevMiddleware(): Plugin {
+  const ROUTES: Record<string, string> = {
+    '/api/chat': 'api/chat.ts',
+    '/api/roadmap': 'api/roadmap.ts',
+  }
+
+  return {
+    name: 'vercel-api-dev-middleware',
+    apply: 'serve',
+    configureServer(server) {
+      // Vite loads .env* files for `import.meta.env` (client-exposed
+      // values only) but never writes them into the Node process's own
+      // `process.env` — these handlers read `process.env.GEMINI_API_KEY`
+      // directly (the same way they do in a real Vercel function), so it
+      // has to be populated here explicitly, once, at server start.
+      const env = loadEnv(server.config.mode, server.config.root, '')
+      for (const [key, value] of Object.entries(env)) {
+        if (process.env[key] === undefined) process.env[key] = value
+      }
+
+      server.middlewares.use(async (req, res, next) => {
+        const routePath = req.url?.split('?')[0]
+        const modulePath = routePath ? ROUTES[routePath] : undefined
+        if (!modulePath) return next()
+
+        try {
+          const chunks: Buffer[] = []
+          for await (const chunk of req) chunks.push(chunk as Buffer)
+          const rawBody = Buffer.concat(chunks).toString('utf-8')
+          ;(req as typeof req & { body?: unknown }).body = rawBody ? JSON.parse(rawBody) : undefined
+        } catch {
+          ;(req as typeof req & { body?: unknown }).body = undefined
+        }
+
+        const vercelRes = res as typeof res & {
+          status: (code: number) => typeof vercelRes
+          json: (payload: unknown) => void
+        }
+        vercelRes.status = (code) => {
+          res.statusCode = code
+          return vercelRes
+        }
+        vercelRes.json = (payload) => {
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify(payload))
+        }
+
+        try {
+          const mod = await server.ssrLoadModule(path.resolve(__dirname, modulePath))
+          await (mod.default as (req: unknown, res: unknown) => Promise<void>)(req, vercelRes)
         } catch (err) {
           next(err as Error)
         }
