@@ -1,7 +1,8 @@
-import { Plus, Sliders, UserRound, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Camera, Plus, Sliders, UserRound, X } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
 import type { Roadmap } from "@/lib/ai/roadmapClient";
 import { parseCv } from "@/lib/cvParser";
+import { DEFAULT_COVER_GRADIENT, loadProfilePhotos, resizeImageToDataUrl, saveProfilePhotos } from "@/lib/profilePhotoStore";
 import { loadProfileInput } from "@/lib/profileStore";
 import type { CourseStatus } from "@/lib/roadmapProgress";
 
@@ -23,6 +24,15 @@ import type { CourseStatus } from "@/lib/roadmapProgress";
  * for this data, so none render; and "location" in the header — no real
  * location was ever collected, so only name + current role show, both
  * real (CV parse).
+ *
+ * Avatar + cover photo (src/lib/profilePhotoStore.ts) are editable HERE —
+ * this is the one place that writes them — and read read-only wherever
+ * else the profile shows up (the Plan carrera map's trigger card). Real
+ * feedback: a CV's raw text has no photo to pull from (extracting one
+ * reliably from an arbitrary PDF layout is its own hard problem, out of
+ * scope), so this is a manual upload instead of anything automatic; the
+ * default cover (DEFAULT_COVER_GRADIENT) is a plain gradient, never a
+ * fabricated stock photo standing in for a real one.
  *
  * "Certificaciones Coderhouse" (PARTE B) isn't separately stored — it's
  * derived live from the same roadmap progress state the node map writes to
@@ -46,6 +56,24 @@ export function CvView({
   getCompletedAt: (id: string) => string | undefined;
 }) {
   const [editOpen, setEditOpen] = useState(false);
+  const [photos, setPhotos] = useState(() => loadProfilePhotos());
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
+
+  const handlePhotoSelect = async (kind: "avatar" | "cover", e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      const dataUrl = await resizeImageToDataUrl(file, kind === "avatar" ? 300 : 1200);
+      const next = { ...photos, [kind]: dataUrl };
+      setPhotos(next);
+      saveProfilePhotos(next);
+    } catch {
+      // Best-effort — an unreadable file just leaves the existing photo (or default) in place.
+    }
+  };
+
   // trigger no longer has one single "resumen" string (it's now split into
   // topic sections for the map's trigger node) — combine the two closest
   // ones as this fallback's equivalent when there's no CV to parse.
@@ -64,20 +92,41 @@ export function CvView({
   return (
     <div className="flex-1 overflow-y-auto px-6 py-8 sm:px-8">
       <div className="mx-auto max-w-3xl">
-        {/* Profile header card */}
+        {/* Profile header card — cover + avatar are both editable here, the
+            one place that writes src/lib/profilePhotoStore.ts (see the
+            module doc comment for why there's no automatic photo). */}
         <div className="mb-4 overflow-hidden rounded-[20px] border border-border-soft bg-white">
+          <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handlePhotoSelect("cover", e)} />
           <div
-            className="h-[110px]"
-            style={{ background: "linear-gradient(135deg, #8B6A4A 0%, #C4956A 40%, #D4A57A 100%)" }}
-          />
+            className="group relative h-[110px] cursor-pointer"
+            style={{ background: photos.cover ? undefined : DEFAULT_COVER_GRADIENT }}
+            onClick={() => coverInputRef.current?.click()}
+          >
+            {photos.cover && <img src={photos.cover} alt="" className="h-full w-full object-cover" />}
+            <div className="absolute inset-0 flex items-center justify-center gap-1.5 bg-black/0 font-['Inter:Regular',sans-serif] text-xs text-white opacity-0 transition-opacity group-hover:bg-black/30 group-hover:opacity-100">
+              <Camera className="h-3.5 w-3.5" />
+              Cambiar portada
+            </div>
+          </div>
           <div className="relative flex items-start justify-between gap-4 px-7 pb-6">
             <div className="flex items-start gap-4">
-              <div
-                className="flex shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-ink/10 text-ink-muted"
+              <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handlePhotoSelect("avatar", e)} />
+              <button
+                type="button"
+                onClick={() => avatarInputRef.current?.click()}
+                aria-label="Cambiar foto de perfil"
+                className="group relative flex shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-ink/10 text-ink-muted"
                 style={{ width: 88, height: 88, marginTop: -44 }}
               >
-                <UserRound className="h-8 w-8" />
-              </div>
+                {photos.avatar ? (
+                  <img src={photos.avatar} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <UserRound className="h-8 w-8" />
+                )}
+                <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-opacity group-hover:bg-black/30 group-hover:opacity-100">
+                  <Camera className="h-4 w-4 text-white" />
+                </div>
+              </button>
               <div className="pt-2">
                 <p className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-lg text-ink">
                   {cv.nombre ?? "Tu CV"}

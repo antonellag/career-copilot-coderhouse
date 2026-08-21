@@ -16,6 +16,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import {
   AlertCircle,
+  BarChart3,
   BookOpen,
   CalendarDays,
   Check,
@@ -27,6 +28,7 @@ import {
   FileText,
   Hand,
   HelpCircle,
+  Layers,
   Loader2,
   Map as MapIcon,
   Maximize,
@@ -36,7 +38,9 @@ import {
   Plus as PlusIcon,
   Redo2,
   Search,
+  ShieldCheck,
   Undo2,
+  UserRound,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -57,8 +61,17 @@ import {
   type RoadmapNodeTipo,
 } from "@/lib/ai/roadmapClient";
 import { CATALOG, type CatalogCourse } from "@/lib/catalogClient";
+import {
+  descriptionFor,
+  difficultyFor,
+  durationFor,
+  modulesCountFor,
+  temarioFor,
+  upcomingDatesFrom,
+} from "@/lib/courseDetailContent";
 import { parseCv, type ParsedCv } from "@/lib/cvParser";
 import { CV_ERROR_MESSAGES, extractPdfText } from "@/lib/pdf/extractPdfText";
+import { DEFAULT_COVER_GRADIENT, loadProfilePhotos } from "@/lib/profilePhotoStore";
 import { loadProfileInput, saveProfileInput } from "@/lib/profileStore";
 import { nextStatus, useRoadmapProgress, type CourseStatus } from "@/lib/roadmapProgress";
 
@@ -456,6 +469,7 @@ function MapaBody({
 
       {selectedNode && (
         <DetailPanel
+          key={selectedNode.id}
           node={selectedNode}
           status={getStatus(selectedNode.id)}
           onAdvance={() => advance(selectedNode.id)}
@@ -1076,9 +1090,20 @@ function DetailPanel({
   onAdvance: () => void;
   onClose: () => void;
 }) {
+  const [showAllDates, setShowAllDates] = useState(false);
+  const [openModulo, setOpenModulo] = useState<number | null>(null);
   const upcoming = nextStatus(status);
   const buttonLabel =
-    status === "no-iniciado" ? "Marcar como en progreso" : status === "en-progreso" ? "Marcar como completado (demo)" : null;
+    status === "no-iniciado" ? "Marcar como en progreso" : status === "en-progreso" ? "Marcar como completado" : null;
+
+  const curso = node.curso;
+  const isScheduled = curso.tipo !== "on-demand" && !!curso.proximaFecha;
+  // upcomingDatesFrom/temarioFor/etc. are explicitly fabricated content —
+  // see src/lib/courseDetailContent.ts's own doc comment for the full
+  // reasoning (no real course-detail page data exists to pull from).
+  const allDates = isScheduled ? upcomingDatesFrom(curso.proximaFecha!) : [];
+  const visibleDates = showAllDates ? allDates : allDates.slice(0, 4);
+  const temario = temarioFor(curso.categoria);
 
   return (
     <div className="absolute right-0 top-0 h-full w-full max-w-sm overflow-y-auto border-l border-border-soft bg-white shadow-[-8px_0_30px_rgba(0,0,0,0.06)]">
@@ -1094,14 +1119,11 @@ function DetailPanel({
         </button>
       </div>
 
-      {/* Block 1 — static, real catalog data only, never invented. The 28
-          curso/carrera/diplomatura entries have real price/schedule (see
-          src/lib/catalogClient.ts) — this shows each field only when the
-          course actually has it, same rule the map card and CatalogoView's
-          CourseCard both follow. */}
-      {node.curso.imagen && (
-        <img src={node.curso.imagen} alt="" className="h-36 w-full border-b border-border-soft object-cover" />
-      )}
+      {/* Real catalog data only, never invented — the 28 curso/carrera/
+          diplomatura entries have real image/schedule/price (see
+          src/lib/catalogClient.ts), each field only shows when the course
+          actually has it. */}
+      {curso.imagen && <img src={curso.imagen} alt="" className="h-36 w-full border-b border-border-soft object-cover" />}
       <div className="border-b border-border-soft px-5 py-5">
         {node.tipo !== "principal" && (
           <span
@@ -1111,79 +1133,168 @@ function DetailPanel({
             {node.rama}
           </span>
         )}
-        <h2 className="mb-1 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-lg leading-snug text-ink">
-          {node.curso.nombre}
-        </h2>
+        <h2 className="mb-1 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-lg leading-snug text-ink">{curso.nombre}</h2>
         <p className="mb-3 font-['Inter:Regular',sans-serif] text-sm text-ink-muted">
-          {node.curso.categoria} · {tipoLabel(node.curso.tipo)}
+          {curso.categoria} · {tipoLabel(curso.tipo)}
         </p>
 
-        {(node.curso.proximaFecha || node.curso.horario) && (
-          <div className="mb-3 flex flex-col gap-1">
-            {node.curso.proximaFecha && (
-              <span className="flex items-center gap-1.5 font-['Inter:Regular',sans-serif] text-sm text-ink">
-                <CalendarDays className="h-4 w-4 shrink-0 text-ink-muted" />
-                Próxima fecha: {node.curso.proximaFecha}
-                {node.curso.extraFechas && (
-                  <span className="text-xs text-ink-muted">{node.curso.extraFechas}</span>
-                )}
-              </span>
-            )}
-            {node.curso.horario && (
-              <span className="flex items-center gap-1.5 font-['Inter:Regular',sans-serif] text-sm text-ink">
-                <Clock className="h-4 w-4 shrink-0 text-ink-muted" />
-                {node.curso.horario}
-              </span>
-            )}
-          </div>
-        )}
-
-        {node.curso.precioFinal !== undefined && (
-          <div className="flex flex-col gap-0.5 rounded-xl bg-ink/[0.03] p-3 leading-tight">
-            {node.curso.cuotas !== undefined && node.curso.precioCuota !== undefined && (
-              <span className="font-['Inter:Regular',sans-serif] text-xs text-ink-muted">
-                Hasta {node.curso.cuotas} cuotas sin interés de{" "}
-                <span className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-sm font-bold text-ink">
-                  {formatMapPrice(node.curso.precioCuota)} ARS
-                </span>
-              </span>
-            )}
-            <span className="font-['Inter:Regular',sans-serif] text-xs text-ink-muted">
-              {node.curso.precioOriginal !== undefined && (
-                <span className="mr-2 line-through">{formatMapPrice(node.curso.precioOriginal)} ARS</span>
-              )}
-              Precio final: <span className="font-semibold text-ink">{formatMapPrice(node.curso.precioFinal)} ARS</span>
-            </span>
-          </div>
-        )}
+        {/* Descripción/dificultad/módulos/duración — fabricated, see
+            courseDetailContent.ts. */}
+        <p className="mb-3 font-['Inter:Regular',sans-serif] text-sm leading-relaxed text-ink-muted">
+          {descriptionFor(curso.nombre, curso.categoria)}
+        </p>
+        <div className="mb-1 flex flex-wrap gap-x-4 gap-y-1.5">
+          <span className="flex items-center gap-1.5 font-['Inter:Regular',sans-serif] text-xs text-ink-muted">
+            <BarChart3 className="h-3.5 w-3.5 shrink-0" />
+            Dificultad: <span className="font-medium text-ink">{difficultyFor(curso.tipo)}</span>
+          </span>
+          <span className="flex items-center gap-1.5 font-['Inter:Regular',sans-serif] text-xs text-ink-muted">
+            <Layers className="h-3.5 w-3.5 shrink-0" />
+            Módulos: <span className="font-medium text-ink">{modulesCountFor(curso.tipo)}</span>
+          </span>
+          <span className="flex items-center gap-1.5 font-['Inter:Regular',sans-serif] text-xs text-ink-muted">
+            <Clock className="h-3.5 w-3.5 shrink-0" />
+            Duración: <span className="font-medium text-ink">{durationFor(curso.tipo)}</span>
+          </span>
+        </div>
       </div>
 
-      {/* Block 2 — visually separate: the AI's personalized "why this course,
-          for this person" reasoning (CAMBIO 2/3), never the same text as a
-          generic course description. */}
-      <div className="bg-brand-hover/[0.04] px-5 py-5">
+      {/* Visually separate: the AI's personalized "why this course, for
+          this person" reasoning — never the same text as the generic
+          descripción above. */}
+      <div className="border-b border-border-soft bg-brand-hover/[0.04] px-5 py-5">
         <p className="mb-2 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-xs uppercase tracking-[0.4px] text-brand-hover">
           Por qué está en tu recorrido
         </p>
         <p className="font-['Inter:Regular',sans-serif] text-[15px] leading-relaxed text-ink">{node.justificacion}</p>
       </div>
 
-      {/* CAMBIO 5 — demo-only progress, no real payment/cursada flow. */}
+      {/* Próximas fechas — real first date + horario, weekly cadence
+          extended from there (courseDetailContent.ts). "Comprar curso" is
+          decorative everywhere in this app (no real payments exist), same
+          as CatalogoView's own Comprar button. */}
+      {isScheduled ? (
+        <div className="border-b border-border-soft px-5 py-5">
+          <p className="mb-3 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-sm text-ink">Próximas fechas</p>
+          <div className="flex flex-col gap-2">
+            {visibleDates.map((fecha, i) => (
+              <div key={i} className="flex items-center justify-between gap-3 rounded-xl border border-border-soft p-3">
+                <div className="flex flex-col gap-0.5">
+                  <span className="flex items-center gap-1.5 font-['Inter:Regular',sans-serif] text-sm text-ink">
+                    <CalendarDays className="h-3.5 w-3.5 shrink-0 text-ink-muted" />
+                    {fecha}
+                  </span>
+                  {curso.horario && (
+                    <span className="flex items-center gap-1.5 font-['Inter:Regular',sans-serif] text-xs text-ink-muted">
+                      <Clock className="h-3 w-3 shrink-0" />
+                      {curso.horario}
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="flex shrink-0 items-center gap-1.5 rounded-[10px] border border-border-soft bg-white px-3 py-2 font-['Inter:SemiBold',sans-serif] text-xs font-semibold text-ink transition-colors hover:bg-cream-soft"
+                >
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  Comprar
+                </button>
+              </div>
+            ))}
+          </div>
+          {allDates.length > visibleDates.length && (
+            <button
+              type="button"
+              onClick={() => setShowAllDates(true)}
+              className="mt-2 w-full rounded-pill border border-border-soft py-2 font-['Inter:Regular',sans-serif] text-xs text-ink-muted transition-colors hover:text-ink"
+            >
+              Ver más ({allDates.length - visibleDates.length})
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="border-b border-border-soft px-5 py-5">
+          <button
+            type="button"
+            className="flex w-full items-center justify-center gap-1.5 rounded-pill bg-brand-hover px-5 py-2.5 font-['Plus_Jakarta_Sans:Medium',sans-serif] text-sm text-white transition-transform hover:scale-[1.02]"
+          >
+            <ShieldCheck className="h-4 w-4" />
+            Comprar curso
+          </button>
+        </div>
+      )}
+
+      {curso.precioFinal !== undefined && (
+        <div className="border-b border-border-soft px-5 py-5">
+          <div className="flex flex-col gap-0.5 rounded-xl bg-ink/[0.03] p-3 leading-tight">
+            {curso.cuotas !== undefined && curso.precioCuota !== undefined && (
+              <span className="font-['Inter:Regular',sans-serif] text-xs text-ink-muted">
+                Hasta {curso.cuotas} cuotas sin interés de{" "}
+                <span className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-sm font-bold text-ink">
+                  {formatMapPrice(curso.precioCuota)} ARS
+                </span>
+              </span>
+            )}
+            <span className="font-['Inter:Regular',sans-serif] text-xs text-ink-muted">
+              {curso.precioOriginal !== undefined && (
+                <span className="mr-2 line-through">{formatMapPrice(curso.precioOriginal)} ARS</span>
+              )}
+              Precio final: <span className="font-semibold text-ink">{formatMapPrice(curso.precioFinal)} ARS</span>
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Temario — fabricated, see courseDetailContent.ts. */}
+      <div className="border-b border-border-soft px-5 py-5">
+        <p className="mb-3 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-sm text-ink">Explora el temario completo</p>
+        <div className="flex flex-col gap-1.5">
+          {temario.map((modulo, i) => {
+            const isOpen = openModulo === i;
+            return (
+              <div key={i} className="rounded-xl border border-border-soft">
+                <button
+                  type="button"
+                  onClick={() => setOpenModulo(isOpen ? null : i)}
+                  className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left"
+                >
+                  <span className="font-['Inter:Regular',sans-serif] text-sm text-ink">{modulo}</span>
+                  {isOpen ? (
+                    <ChevronUp className="h-3.5 w-3.5 shrink-0 text-ink-muted" />
+                  ) : (
+                    <ChevronDown className="h-3.5 w-3.5 shrink-0 text-ink-muted" />
+                  )}
+                </button>
+                {isOpen && (
+                  <p className="px-3 pb-3 font-['Inter:Regular',sans-serif] text-xs leading-relaxed text-ink-muted">
+                    Contenido teórico y práctico sobre {modulo.toLowerCase()}.
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Demo-only progress — separate and de-emphasized on purpose: it
+          isn't the real "activate this course" action anymore (that's
+          Comprar above, decorative like everywhere else since there's no
+          real payment flow), it only exists so the CV's "Certificaciones
+          Coderhouse" and Portfolio's auto-generated projects (both driven
+          by roadmapProgress.ts) still have a way to demo. */}
       <div className="px-5 py-5">
-        <p className="mb-3 flex items-center gap-2 font-['Inter:Regular',sans-serif] text-sm text-ink-muted">
+        <p className="mb-2 flex items-center gap-2 font-['Inter:Regular',sans-serif] text-xs text-ink-muted">
           <StatusIcon status={status} />
           {statusLabel(status)}
         </p>
-        {buttonLabel && (
+        {buttonLabel ? (
           <button
             type="button"
             onClick={onAdvance}
-            className="w-full rounded-pill bg-brand-hover px-5 py-2.5 font-['Plus_Jakarta_Sans:Medium',sans-serif] text-sm text-white transition-transform hover:scale-[1.02]"
+            className="font-['Inter:Regular',sans-serif] text-xs text-ink-muted underline-offset-2 hover:text-ink hover:underline"
           >
-            {buttonLabel}
+            {buttonLabel} (demo)
           </button>
-        )}
-        {!buttonLabel && (
+        ) : (
           <p className="font-['Inter:Regular',sans-serif] text-xs text-ink-muted">
             Ya completaste este curso (demo) — próximo estado: {upcoming === status ? "sin cambios" : upcoming}.
           </p>
@@ -1249,6 +1360,10 @@ function TriggerCard({
   // Estrategia y especialización starts open, matching the boceto.
   const [open, setOpen] = useState<TriggerSectionKey>("estrategia");
   const currentRole = cv.experiencia[0]?.puesto ?? null;
+  // Read-only here — CvView.tsx (Perfil > Curriculum) is the one place
+  // that writes these, see src/lib/profilePhotoStore.ts's doc comment for
+  // why there's no automatic photo from the CV itself.
+  const photos = useMemo(() => loadProfilePhotos(), []);
 
   const topRows: { key: TriggerSectionKey; title: string; text: string }[] = [
     { key: "experiencia", title: "Experiencia", text: roadmap.trigger.experiencia },
@@ -1258,13 +1373,11 @@ function TriggerCard({
 
   return (
     <div>
-      {/* Dark banner — approximates the photo-style header from the boceto
-          (no real user photos exist, so a textured dark gradient with a
-          warm accent streak stands in, never a fabricated photo). */}
-      <div
-        className="h-20"
-        style={{ background: "linear-gradient(100deg, #0a0a0a 0%, #1a1a1a 55%, #ff5c2d 82%, #1a1a1a 100%)" }}
-      />
+      {/* Same cover the person set in Perfil, or the shared default
+          gradient — never a fabricated photo. */}
+      <div className="h-20" style={{ background: photos.cover ? undefined : DEFAULT_COVER_GRADIENT }}>
+        {photos.cover && <img src={photos.cover} alt="" className="h-full w-full object-cover" />}
+      </div>
 
       <div className="px-4 pb-4">
         {/* items-end (not items-center): only the avatar is tall enough
@@ -1274,9 +1387,10 @@ function TriggerCard({
             riding up into it. */}
         <div className="-mt-6 mb-3 flex items-end gap-2.5">
           <span
-            className="h-12 w-12 shrink-0 rounded-full border-[3px] border-white shadow-[0_2px_8px_rgba(0,0,0,0.15)]"
-            style={{ background: "radial-gradient(circle at 30% 30%, #4c1d95, #0f0a1e 70%)" }}
-          />
+            className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border-[3px] border-white bg-ink/10 text-ink-muted shadow-[0_2px_8px_rgba(0,0,0,0.15)]"
+          >
+            {photos.avatar ? <img src={photos.avatar} alt="" className="h-full w-full object-cover" /> : <UserRound className="h-5 w-5" />}
+          </span>
           <div>
             <p className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-sm text-ink">
               {cv.nombre ?? "Tu perfil"}
