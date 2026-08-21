@@ -15,11 +15,13 @@ import "@xyflow/react/dist/style.css";
 import {
   AlertCircle,
   BookOpen,
+  CalendarDays,
   Check,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
   Circle,
+  Clock,
   FileText,
   Hand,
   HelpCircle,
@@ -899,9 +901,14 @@ function DetailPanel({
         </button>
       </div>
 
-      {/* Block 1 — static, real catalog data only. No invented fields
-          (price, schedule, difficulty, syllabus): course-catalog.json only
-          has id/nombre/categoria/tipo right now, so that's all this shows. */}
+      {/* Block 1 — static, real catalog data only, never invented. The 28
+          curso/carrera/diplomatura entries have real price/schedule (see
+          src/lib/catalogClient.ts) — this shows each field only when the
+          course actually has it, same rule the map card and CatalogoView's
+          CourseCard both follow. */}
+      {node.curso.imagen && (
+        <img src={node.curso.imagen} alt="" className="h-36 w-full border-b border-border-soft object-cover" />
+      )}
       <div className="border-b border-border-soft px-5 py-5">
         {node.tipo !== "principal" && (
           <span
@@ -914,9 +921,48 @@ function DetailPanel({
         <h2 className="mb-1 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-lg leading-snug text-ink">
           {node.curso.nombre}
         </h2>
-        <p className="font-['Inter:Regular',sans-serif] text-sm text-ink-muted">
+        <p className="mb-3 font-['Inter:Regular',sans-serif] text-sm text-ink-muted">
           {node.curso.categoria} · {tipoLabel(node.curso.tipo)}
         </p>
+
+        {(node.curso.proximaFecha || node.curso.horario) && (
+          <div className="mb-3 flex flex-col gap-1">
+            {node.curso.proximaFecha && (
+              <span className="flex items-center gap-1.5 font-['Inter:Regular',sans-serif] text-sm text-ink">
+                <CalendarDays className="h-4 w-4 shrink-0 text-ink-muted" />
+                Próxima fecha: {node.curso.proximaFecha}
+                {node.curso.extraFechas && (
+                  <span className="text-xs text-ink-muted">{node.curso.extraFechas}</span>
+                )}
+              </span>
+            )}
+            {node.curso.horario && (
+              <span className="flex items-center gap-1.5 font-['Inter:Regular',sans-serif] text-sm text-ink">
+                <Clock className="h-4 w-4 shrink-0 text-ink-muted" />
+                {node.curso.horario}
+              </span>
+            )}
+          </div>
+        )}
+
+        {node.curso.precioFinal !== undefined && (
+          <div className="flex flex-col gap-0.5 rounded-xl bg-ink/[0.03] p-3 leading-tight">
+            {node.curso.cuotas !== undefined && node.curso.precioCuota !== undefined && (
+              <span className="font-['Inter:Regular',sans-serif] text-xs text-ink-muted">
+                Hasta {node.curso.cuotas} cuotas sin interés de{" "}
+                <span className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-sm font-bold text-ink">
+                  {formatMapPrice(node.curso.precioCuota)} ARS
+                </span>
+              </span>
+            )}
+            <span className="font-['Inter:Regular',sans-serif] text-xs text-ink-muted">
+              {node.curso.precioOriginal !== undefined && (
+                <span className="mr-2 line-through">{formatMapPrice(node.curso.precioOriginal)} ARS</span>
+              )}
+              Precio final: <span className="font-semibold text-ink">{formatMapPrice(node.curso.precioFinal)} ARS</span>
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Block 2 — visually separate: the AI's personalized "why this course,
@@ -1145,10 +1191,11 @@ function courseNodeStyle(tipo: RoadmapNodeTipo, status: CourseStatus): React.CSS
 }
 
 // Boceto shows each course node as a mini version of a real course card —
-// colored header block standing in for a course photo (no real course
-// images exist in data/course-catalog.json, so a category-tinted block
-// with an icon is the honest placeholder) plus a category badge, never an
-// invented price/date since those fields don't exist in the catalog yet.
+// real course photo when the catalog has one (28 of 57 do — scraped from
+// the official site, see src/lib/catalogClient.ts), category-tinted block
+// with an icon as the honest placeholder otherwise. Price only renders
+// when the course actually has one, same rule as CatalogoView's CourseCard
+// (which this mirrors) — never invented for the 29 on-demand courses.
 const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
   "Inteligencia Artificial": { bg: "#ede9fe", text: "#6d28d9" },
   "Programación": { bg: "#dbeafe", text: "#1d4ed8" },
@@ -1168,38 +1215,45 @@ function courseNodeLabel(node: RoadmapNode, status: CourseStatus): React.ReactNo
   const catColor = categoryColor(node.curso.categoria);
   return (
     <div>
-      {/* Header block — stands in for a course photo; category-tinted
-          since no real course images exist in the catalog data. Course
-          name lives here too, large and bold, matching the reference's
-          density (not just a small badge below); the decorative icon chip
-          bottom-right is purely visual — no data behind it, same rule as
-          the price/date rows below. */}
-      <div className="relative flex min-h-[92px] flex-col justify-center gap-1 p-3.5" style={{ background: catColor.bg }}>
-        <span className="font-['Inter:SemiBold',sans-serif] text-[11px] font-semibold" style={{ color: catColor.text }}>
+      {/* Header block — real course photo when we have one, category-
+          tinted block with an icon otherwise (honest placeholder, no real
+          image exists for the other 29 courses). Badges sit on solid pills
+          (not colored text over the raw image) since several real course
+          photos have their own baked-in text/logos — plain overlaid text
+          was unreadable against those; a pill background stays legible
+          regardless of what's under it. Title lives below in the white
+          body, not overlaid on the image, same reasoning. */}
+      <div className="relative flex h-[76px] items-center justify-center overflow-hidden">
+        {node.curso.imagen ? (
+          <img src={node.curso.imagen} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        ) : (
+          <>
+            <div className="absolute inset-0" style={{ background: catColor.bg }} />
+            <BookOpen className="relative h-6 w-6" style={{ color: catColor.text }} />
+          </>
+        )}
+        <span
+          className="absolute left-2 top-2 rounded-pill px-2 py-0.5 font-['Inter:SemiBold',sans-serif] text-[10px] font-semibold"
+          style={{ background: catColor.bg, color: catColor.text }}
+        >
           {node.curso.categoria}
         </span>
-        <p className="max-w-[70%] font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-base font-bold leading-tight text-ink">
-          {node.curso.nombre}
-        </p>
-        <span
-          className="absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-xl"
-          style={{ background: "rgba(255,255,255,0.55)" }}
-        >
-          <BookOpen className="h-4 w-4" style={{ color: catColor.text }} />
-        </span>
         {status === "en-progreso" && (
-          <span className="absolute right-3 top-3 rounded-pill bg-brand-hover px-2 py-0.5 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-[10px] text-white">
+          <span className="absolute right-2 top-2 rounded-pill bg-brand-hover px-2 py-0.5 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-[10px] text-white">
             Ingresar
           </span>
         )}
         {status === "completado" && (
-          <span className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-green-500 text-white">
+          <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-green-500 text-white">
             <Check className="h-3 w-3" strokeWidth={3} />
           </span>
         )}
       </div>
 
       <div className="px-3.5 py-3">
+        <p className="mb-1.5 line-clamp-2 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-sm font-bold leading-tight text-ink">
+          {node.curso.nombre}
+        </p>
         {/* Real branch name (e.g. "Complemento de producto", or the fixed
             "¿Necesitás repasar algo?" for repaso nodes), not a generic
             "Complementario" tag — the point is you can tell which branch
@@ -1212,6 +1266,12 @@ function courseNodeLabel(node: RoadmapNode, status: CourseStatus): React.ReactNo
             {node.rama}
           </span>
         )}
+        {node.curso.precioFinal !== undefined && (
+          <p className="mb-1.5 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-sm font-bold text-ink">
+            {formatMapPrice(node.curso.precioFinal)}{" "}
+            <span className="font-['Inter:Regular',sans-serif] text-[11px] font-normal text-ink-muted">ARS</span>
+          </p>
+        )}
         <span className="flex items-center gap-1 font-['Inter:Regular',sans-serif] text-[11px] text-ink-muted">
           <StatusIcon status={status} />
           {tipoLabel(node.curso.tipo)} · {statusLabel(status)}
@@ -1219,6 +1279,10 @@ function courseNodeLabel(node: RoadmapNode, status: CourseStatus): React.ReactNo
       </div>
     </div>
   );
+}
+
+function formatMapPrice(n: number): string {
+  return `$${n.toLocaleString("es-AR", { maximumFractionDigits: 0 })}`;
 }
 
 function buildFlow(

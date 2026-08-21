@@ -1,4 +1,4 @@
-import { BookOpen, Search } from "lucide-react";
+import { BookOpen, CalendarDays, Clock, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { CATALOG, categoriesFor, type CatalogCourse, type CourseType } from "@/lib/catalogClient";
 
@@ -13,11 +13,17 @@ import { CATALOG, categoriesFor, type CatalogCourse, type CourseType } from "@/l
  * them is a no-op; the visible list never changes because of them.
  *
  * Visual structure (sidebar shape, filter pills, card layout) aligned to
- * the Figma Make reference's CatalogDesktop — its per-course price/date/
- * discount numbers were placeholder data ("+15 fechas más" etc.) and are
- * deliberately NOT copied; CourseCard only renders those fields when
- * they're actually present on a course (none are yet), same rule as
- * everywhere else in this app.
+ * the Figma Make reference's CatalogDesktop. CourseCard's price/date/
+ * discount/image fields are now real, scraped straight from the official
+ * coderhouse.com pages for the 28 curso/carrera/diplomatura entries — see
+ * src/lib/catalogClient.ts's doc comment. Still renders each field only
+ * when it's actually present (the 29 on-demand courses have none of
+ * this), same rule as everywhere else in this app; nothing here is
+ * invented.
+ *
+ * One known caveat carried over from the source data: "próxima fecha" is
+ * a snapshot from whenever that page was scraped, not a live value — it
+ * can read as a date already in the past by the time someone looks at it.
  */
 
 const SECTIONS: { id: CourseType; label: string; title: string; blurb: string }[] = [
@@ -202,54 +208,78 @@ function CourseCard({ course }: { course: CatalogCourse }) {
       className="flex flex-col overflow-hidden rounded-[20px] border border-border-soft bg-white"
       style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}
     >
-      <div className="relative flex flex-col gap-2 p-5" style={{ background: catColor.bg, minHeight: 108 }}>
-        <span
-          className="font-['Inter:SemiBold',sans-serif] text-xs font-semibold"
-          style={{ color: catColor.text }}
-        >
-          {course.categoria}
-        </span>
-        <p className="max-w-[70%] font-['Inter:Bold',sans-serif] text-lg font-bold leading-tight text-ink">
-          {course.nombre}
-        </p>
-        {/* Decorative icon chip, no data behind it — same category palette
-            Plan carrera's map nodes use for the header block. */}
-        <span
-          className="absolute bottom-3.5 right-3.5 flex h-10 w-10 items-center justify-center rounded-xl"
-          style={{ background: "rgba(255,255,255,0.55)" }}
-        >
-          <BookOpen className="h-4.5 w-4.5" style={{ color: catColor.text }} />
-        </span>
-        {course.descuento && (
-          <span className="absolute right-3 top-3 rounded-pill bg-brand-hover px-2 py-1 font-['Inter:Bold',sans-serif] text-[11px] font-bold text-white">
-            {course.descuento}
-          </span>
+      {/* Real course photo when we have one (28 of 57 courses do — see
+          public/courses/); category-tinted icon block otherwise, same
+          honest placeholder the map's course nodes use. */}
+      <div className="relative aspect-[16/7] overflow-hidden" style={{ background: catColor.bg }}>
+        {course.imagen ? (
+          <img src={course.imagen} alt={course.nombre} className="h-full w-full object-cover" loading="lazy" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center">
+            <BookOpen className="h-8 w-8" style={{ color: catColor.text }} />
+          </div>
         )}
+        <div className="pointer-events-none absolute inset-x-3 top-3 flex items-start justify-between gap-2">
+          <span
+            className="inline-flex items-center rounded-pill px-2.5 py-0.5 font-['Inter:SemiBold',sans-serif] text-xs font-semibold"
+            style={{ background: catColor.bg, color: catColor.text }}
+          >
+            {course.categoria}
+          </span>
+          {course.descuento && (
+            <span className="rounded-pill bg-brand-hover px-2.5 py-0.5 font-['Inter:Bold',sans-serif] text-xs font-bold text-white">
+              {course.descuento}
+            </span>
+          )}
+        </div>
       </div>
 
-      <div className="flex flex-col gap-3 p-5">
+      <div className="flex flex-1 flex-col gap-2.5 p-4">
+        <h3 className="line-clamp-2 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-base font-bold leading-snug text-ink">
+          {course.nombre}
+        </h3>
+
         {(course.proximaFecha || course.horario) && (
-          <div className="flex flex-col gap-0.5 font-['Inter:Regular',sans-serif] text-xs text-ink-muted">
+          <div className="flex flex-col gap-0.5">
             {course.proximaFecha && (
-              <span>
+              <span className="flex items-center gap-1.5 font-['Inter:Regular',sans-serif] text-sm text-ink">
+                <CalendarDays className="h-3.5 w-3.5 shrink-0 text-ink-muted" />
                 Próxima fecha: {course.proximaFecha}
-                {course.proximaFecha && " · más fechas disponibles"}
+                {course.extraFechas && (
+                  <span className="whitespace-nowrap font-['Inter:Regular',sans-serif] text-xs text-ink-muted">
+                    {course.extraFechas}
+                  </span>
+                )}
               </span>
             )}
-            {course.horario && <span>{course.horario}</span>}
+            {course.horario && (
+              <span className="flex items-center gap-1.5 font-['Inter:Regular',sans-serif] text-sm text-ink">
+                <Clock className="h-3.5 w-3.5 shrink-0 text-ink-muted" />
+                {course.horario}
+              </span>
+            )}
           </div>
         )}
 
-        <div className="mt-auto flex items-center justify-between gap-3 pt-1">
+        <div className="mt-auto flex flex-col gap-2.5 pt-2">
           {hasPrice ? (
-            <div className="flex items-baseline gap-1.5">
-              {course.precioOriginal !== undefined && (
-                <span className="font-['Inter:Regular',sans-serif] text-xs text-ink-muted line-through">
-                  {formatPrice(course.precioOriginal)}
+            <div className="flex flex-col gap-0.5 leading-tight">
+              {course.cuotas !== undefined && (
+                <span className="font-['Inter:Regular',sans-serif] text-xs font-medium text-ink-muted">
+                  Hasta {course.cuotas} cuotas sin interés de
                 </span>
               )}
-              <span className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-sm text-ink">
-                {formatPrice(course.precioFinal!)}
+              {course.precioCuota !== undefined && (
+                <span className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-xl font-extrabold tracking-tight text-ink">
+                  {formatPrice(course.precioCuota)}{" "}
+                  <span className="text-xs font-extrabold text-ink">ARS</span>
+                </span>
+              )}
+              <span className="font-['Inter:Regular',sans-serif] text-xs text-ink-muted">
+                {course.precioOriginal !== undefined && (
+                  <span className="mr-2 line-through">{formatPrice(course.precioOriginal)} ARS</span>
+                )}
+                Precio final: {formatPrice(course.precioFinal!)} ARS
               </span>
             </div>
           ) : (
@@ -312,6 +342,8 @@ function tipoLabel(tipo: CourseType): string {
   return "Curso";
 }
 
+// Plain "$111.300" — "ARS" is appended separately where it's shown
+// (matching the real site's card layout, which never merges the two).
 function formatPrice(n: number): string {
-  return n.toLocaleString("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 });
+  return `$${n.toLocaleString("es-AR", { maximumFractionDigits: 0 })}`;
 }

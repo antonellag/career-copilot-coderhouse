@@ -1,5 +1,9 @@
 node_modules/
 *.zip
+# Raw scraped source material (saved HTML snapshots + images) used once to
+# extract real course data into data/course-catalog.json — not project
+# source, never meant to be committed.
+codigo-extraido-de-coder/
 dist/
 build/
 .cache/

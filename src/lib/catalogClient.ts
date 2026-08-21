@@ -7,11 +7,16 @@
  * import JSON straight from outside src/ since /data sits in the project
  * root, so there's no second copy to keep in sync.
  *
- * Only id/nombre/categoria/tipo are real fields in that file today — the
- * optional pricing/schedule/discount fields below are typed for whenever
- * that data gets added, but nothing in this codebase invents them when
- * they're absent (see CatalogoView's CourseCard, which only renders a
- * field when it's actually present).
+ * id/nombre/categoria/tipo cover all 57 courses. The pricing/schedule/
+ * discount/image fields below are real too, but only for the 28
+ * curso/carrera/diplomatura entries — scraped straight from the official
+ * coderhouse.com pages (saved HTML snapshots the user provided), matched
+ * back to this catalog by course name. The 29 on-demand courses
+ * genuinely don't have this data on the real site either (they're listed,
+ * not sold as scheduled cohorts), so those fields stay undefined for
+ * them — nothing in this codebase invents a value when it's absent (see
+ * CatalogoView's CourseCard, which only renders a field when it's
+ * actually present).
  */
 import catalog from "../../data/course-catalog.json";
 
@@ -24,9 +29,16 @@ export type CatalogCourse = {
   tipo: CourseType;
   descuento?: string;
   proximaFecha?: string;
+  /** e.g. "+16 fechas más" — real, scraped alongside proximaFecha. */
+  extraFechas?: string;
   horario?: string;
   precioOriginal?: number;
   precioFinal?: number;
+  /** Per-installment amount — "Hasta {cuotas} cuotas sin interés de {precioCuota}". */
+  cuotas?: number;
+  precioCuota?: number;
+  /** Real course photo, e.g. "/courses/excel-avanzado.png" — see public/courses/. */
+  imagen?: string;
 };
 
 export const CATALOG: CatalogCourse[] = catalog as CatalogCourse[];

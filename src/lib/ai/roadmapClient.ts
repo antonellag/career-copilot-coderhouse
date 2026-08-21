@@ -16,6 +16,16 @@ export type RoadmapCourse = {
   nombre: string;
   categoria: string;
   tipo: "curso" | "carrera" | "diplomatura" | "on-demand";
+  /** Real for the 28 curso/carrera/diplomatura entries (scraped from the official site), absent for on-demand — see src/lib/catalogClient.ts. */
+  descuento?: string;
+  proximaFecha?: string;
+  extraFechas?: string;
+  horario?: string;
+  precioOriginal?: number;
+  precioFinal?: number;
+  cuotas?: number;
+  precioCuota?: number;
+  imagen?: string;
 };
 
 /** Which of the 3 branches a node belongs to — see Roadmap's own doc comment for what each means. */
