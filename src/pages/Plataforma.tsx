@@ -43,6 +43,7 @@ import { PerfilView } from "@/components/plataforma/PerfilView";
 import { PlataformaLayout, type PlataformaTab } from "@/components/plataforma/PlataformaLayout";
 import type { PortfolioProject } from "@/components/plataforma/PortfolioView";
 import {
+  generateRoadmap,
   loadRoadmap,
   saveRoadmap,
   type Roadmap,
@@ -51,7 +52,7 @@ import {
   type RoadmapNodeTipo,
 } from "@/lib/ai/roadmapClient";
 import { CATALOG, type CatalogCourse } from "@/lib/catalogClient";
-import { parseCv } from "@/lib/cvParser";
+import { parseCv, type ParsedCv } from "@/lib/cvParser";
 import { CV_ERROR_MESSAGES, extractPdfText } from "@/lib/pdf/extractPdfText";
 import { loadProfileInput, saveProfileInput } from "@/lib/profileStore";
 import { nextStatus, useRoadmapProgress, type CourseStatus } from "@/lib/roadmapProgress";
@@ -145,25 +146,43 @@ export default function Plataforma() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tab, setTab] = useState<PlataformaTab>("plan-carrera");
 
-  const addCourseToRoadmap = useCallback((courseId: string) => {
+  const addCourseToRoadmap = useCallback((courseId: string, tipo: RoadmapNodeTipo) => {
     setRoadmap((prev) => {
       if (!prev) return prev;
-      const updated = withManualCourse(prev, courseId);
+      const updated = withManualCourse(prev, courseId, tipo);
       saveRoadmap(updated);
       return updated;
     });
   }, []);
 
   // Reached from EmptyMapState when someone used /limbo's "Omitir test"
-  // shortcut and landed here with nothing generated — instead of a dead
-  // end, they get an empty starter roadmap (just the trigger card, no
-  // courses) they can build themselves via AddCoursePanel. The CV, if they
-  // attach one, isn't wasted: it still feeds CvView/the trigger card's
-  // name through the same parseCv(loadProfileInput(), ...) path the real
-  // /limbo flow uses.
-  const startEmptyRoadmap = useCallback((cvText: string | null) => {
-    if (cvText) saveProfileInput({ cvText, userAnswers: [] });
-    const starter = buildStarterRoadmap();
+  // shortcut and landed here with nothing generated. Two real paths, not
+  // one: attaching a CV IS enough signal to actually call the same
+  // /api/roadmap Gemini flow /limbo's real conversation uses (real
+  // feedback — this used to just extract CV fields with no AI call at
+  // all, which undersold what a CV alone can do) — riasecLabels comes
+  // back empty since there was no test, the prompt just has less to work
+  // with, same as any other real conversation with less detail. Throws on
+  // failure (quota/network/etc.) so EmptyMapState can show a real error
+  // instead of silently doing nothing.
+  const generateRoadmapFromCv = useCallback(async (cvText: string) => {
+    saveProfileInput({ cvText, userAnswers: [] });
+    const transcript = `--- CV adjunto (texto extraído, no hubo conversación) ---\n${cvText}\n--- fin CV ---`;
+    const generated = await generateRoadmap(transcript, []);
+    saveRoadmap(generated);
+    setRoadmap(generated);
+  }, []);
+
+  // The manual, no-AI fallback: an empty starter roadmap (just the trigger
+  // card) built for AddCoursePanel to fill in by hand. Reached two ways —
+  // "Empezar sin CV" (nothing to read, parseCv(null, ...) below is a
+  // no-op), and as the recovery path when generateRoadmapFromCv's Gemini
+  // call fails (quota, network, etc.): the CV was already saved to
+  // profileStore before that call ever went out, so falling back here
+  // still picks it up via loadProfileInput() and gets real (non-AI)
+  // trigger text instead of nothing.
+  const startManualRoadmap = useCallback(() => {
+    const starter = buildStarterRoadmap(parseCv(loadProfileInput(), null));
     saveRoadmap(starter);
     setRoadmap(starter);
   }, []);
@@ -194,7 +213,8 @@ export default function Plataforma() {
           setSelectedId={setSelectedId}
           onViewPerfil={onViewPerfil}
           onAddCourse={addCourseToRoadmap}
-          onStartEmpty={startEmptyRoadmap}
+          onGenerateFromCv={generateRoadmapFromCv}
+          onStartManual={startManualRoadmap}
         />
       )}
       {tab === "catalogo" && <CatalogoView />}
@@ -226,7 +246,8 @@ function MapaBody({
   setSelectedId,
   onViewPerfil,
   onAddCourse,
-  onStartEmpty,
+  onGenerateFromCv,
+  onStartManual,
 }: {
   /** Null when /limbo's "Omitir test" shortcut skipped straight here — see the module doc comment. */
   roadmap: Roadmap | null;
@@ -235,8 +256,9 @@ function MapaBody({
   selectedId: string | null;
   setSelectedId: (id: string | null) => void;
   onViewPerfil: () => void;
-  onAddCourse: (courseId: string) => void;
-  onStartEmpty: (cvText: string | null) => void;
+  onAddCourse: (courseId: string, tipo: RoadmapNodeTipo) => void;
+  onGenerateFromCv: (cvText: string) => Promise<void>;
+  onStartManual: () => void;
 }) {
   // Fixed over the canvas itself (top-right), not embedded in the shared
   // nav — see src/components/plataforma/PlataformaLayout.tsx's doc comment.
@@ -273,7 +295,7 @@ function MapaBody({
   const [tool, setTool] = useState<"select" | "hand">("hand");
   const [showMinimap, setShowMinimap] = useState(false);
 
-  if (!roadmap) return <EmptyMapState onStart={onStartEmpty} />;
+  if (!roadmap) return <EmptyMapState onGenerateFromCv={onGenerateFromCv} onStartManual={onStartManual} />;
 
   return (
     <div className="relative flex-1">
@@ -505,10 +527,18 @@ function RoadmapLegend() {
 // one on click — replaces the old "dim non-matching map nodes" search
 // (real feedback: that read as searching among what's already placed,
 // when the actual need was finding what's still missing to add more).
-// Manually added courses land in their own "Agregados por vos" branch
-// (see withManualCourse) — kept separate from the AI-authored branches so
-// it's clear which cards came from a real personalized reason vs. a
-// person's own pick.
+// Each result offers 3 small buttons (one per BRANCH_ACCENT color) instead
+// of a single generic "+" — real feedback: adding always went to the same
+// "Agregados por vos" bucket with no say over which branch it should read
+// as (camino principal / repaso / complementaria).
+//
+// Click-outside-to-close alone isn't reliable here: React Flow's own pane
+// handles mousedown for panning and never lets it bubble to `document`, so
+// clicking the canvas (almost the whole screen) silently failed to close
+// this — real feedback ("no puedo cerrar las opciones del buscador"). Now
+// has an explicit close (X) in the header as the reliable path, plus
+// Escape as a second one; outside-click still works for clicks that do
+// land outside the canvas (the nav, other panels).
 function AddCoursePanel({
   query,
   setQuery,
@@ -522,7 +552,7 @@ function AddCoursePanel({
   open: boolean;
   setOpen: (v: boolean) => void;
   courses: CatalogCourse[];
-  onAdd: (courseId: string) => void;
+  onAdd: (courseId: string, tipo: RoadmapNodeTipo) => void;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -531,8 +561,15 @@ function AddCoursePanel({
     const onClickOutside = (e: MouseEvent) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target as globalThis.Node)) setOpen(false);
     };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
     document.addEventListener("mousedown", onClickOutside);
-    return () => document.removeEventListener("mousedown", onClickOutside);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onClickOutside);
+      document.removeEventListener("keydown", onKeyDown);
+    };
   }, [open, setOpen]);
 
   return (
@@ -550,10 +587,20 @@ function AddCoursePanel({
 
       {open && (
         <div className="absolute right-0 top-14 z-10 max-h-96 w-80 overflow-y-auto rounded-2xl border border-border-soft bg-white p-2 shadow-[0_8px_24px_rgba(0,0,0,0.12)]">
-          <p className="px-3 pb-2 pt-1 font-['Inter:Regular',sans-serif] text-[11px] leading-snug text-ink-muted">
-            Este buscador no filtra los cursos de tu mapa — buscá por nombre o palabra clave para{" "}
-            <span className="font-medium text-ink">agregar</span> cursos del catálogo que todavía no están acá.
-          </p>
+          <div className="flex items-start justify-between gap-2 px-3 pb-2 pt-1">
+            <p className="font-['Inter:Regular',sans-serif] text-[11px] leading-snug text-ink-muted">
+              Este buscador no filtra los cursos de tu mapa — buscá por nombre o palabra clave y elegí a qué
+              rama <span className="font-medium text-ink">agregar</span> un curso que todavía no está acá.
+            </p>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              aria-label="Cerrar buscador"
+              className="shrink-0 text-ink-muted hover:text-ink"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
           {courses.length === 0 ? (
             <p className="px-3 py-4 text-center font-['Inter:Regular',sans-serif] text-xs text-ink-muted">
               {query
@@ -562,20 +609,17 @@ function AddCoursePanel({
             </p>
           ) : (
             courses.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => onAdd(c.id)}
-                className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-ink/5"
-              >
+              <div key={c.id} className="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 hover:bg-ink/5">
                 <span className="min-w-0">
                   <span className="block truncate font-['Inter:Regular',sans-serif] text-sm text-ink">{c.nombre}</span>
                   <span className="block font-['Inter:Regular',sans-serif] text-xs text-ink-muted">{c.categoria}</span>
                 </span>
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-hover/15 text-brand-hover">
-                  <PlusIcon className="h-3.5 w-3.5" />
+                <span className="flex shrink-0 items-center gap-1">
+                  <BranchPickButton tipo="principal" onClick={() => onAdd(c.id, "principal")} />
+                  <BranchPickButton tipo="repaso" onClick={() => onAdd(c.id, "repaso")} />
+                  <BranchPickButton tipo="complementaria" onClick={() => onAdd(c.id, "complementaria")} />
                 </span>
-              </button>
+              </div>
             ))
           )}
         </div>
@@ -584,29 +628,82 @@ function AddCoursePanel({
   );
 }
 
+const BRANCH_TIPO_LABEL: Record<RoadmapNodeTipo, string> = {
+  principal: "Agregar al camino principal",
+  repaso: "Agregar a repaso",
+  complementaria: "Agregar como complementaria",
+};
+
+function BranchPickButton({ tipo, onClick }: { tipo: RoadmapNodeTipo; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={BRANCH_TIPO_LABEL[tipo]}
+      title={BRANCH_TIPO_LABEL[tipo]}
+      className="flex h-6 w-6 items-center justify-center rounded-full transition-transform hover:scale-110"
+      style={{ background: `${BRANCH_ACCENT[tipo]}22`, color: BRANCH_ACCENT[tipo] }}
+    >
+      <PlusIcon className="h-3 w-3" strokeWidth={3} />
+    </button>
+  );
+}
+
 // Manually added courses (via AddCoursePanel) don't have AI reasoning
 // behind them, so `justificacion` says exactly that instead of faking a
-// personalized rationale. They all land in one shared branch (created on
-// first add) rather than mixed into rama_principal or the AI's own
-// ramas_complementarias — keeps "the AI picked this for you" and "you
-// picked this yourself" visually distinct on the map.
+// personalized rationale. Real feedback: adding always dumped the course
+// into one fixed bucket with no say over how it should read — now the
+// person picks the tipo themselves (see BranchPickButton), and each lands
+// accordingly:
+//   - "principal": appended to rama_principal itself.
+//   - "repaso": appended to rama_repaso (created — always named exactly
+//     "¿Necesitás repasar algo?", same fixed name api/roadmap.ts uses for
+//     the AI-generated version — if it doesn't exist yet).
+//   - "complementaria": appended to a dedicated "Agregados por vos" branch
+//     (created if it doesn't exist) — kept separate from the AI's own
+//     ramas_complementarias so "the AI picked this for you" and "you
+//     picked this yourself" stay visually distinct.
 const MANUAL_BRANCH_NAME = "Agregados por vos";
+const REPASO_BRANCH_NAME = "¿Necesitás repasar algo?";
 
-function withManualCourse(roadmap: Roadmap, courseId: string): Roadmap {
+function withManualCourse(roadmap: Roadmap, courseId: string, tipo: RoadmapNodeTipo): Roadmap {
   if (roadmap.nodos.some((n) => n.id === courseId)) return roadmap; // already on the map, no-op
   const course = CATALOG.find((c) => c.id === courseId);
   if (!course) return roadmap;
 
-  const existing = roadmap.ramasComplementarias.find((r) => r.nombre === MANUAL_BRANCH_NAME);
+  const rama = tipo === "principal" ? roadmap.ramaPrincipal.nombre : tipo === "repaso" ? REPASO_BRANCH_NAME : MANUAL_BRANCH_NAME;
+  const currentNodos =
+    tipo === "principal"
+      ? roadmap.ramaPrincipal.nodos
+      : tipo === "repaso"
+        ? (roadmap.ramaRepaso?.nodos ?? [])
+        : (roadmap.ramasComplementarias.find((r) => r.nombre === MANUAL_BRANCH_NAME)?.nodos ?? []);
+
   const newNode: RoadmapNode = {
     id: course.id,
-    orden: (existing?.nodos.length ?? 0) + 1,
+    orden: currentNodos.length + 1,
     justificacion: "Lo agregaste vos desde el catálogo — no tiene una razón generada por la IA.",
     curso: { id: course.id, nombre: course.nombre, categoria: course.categoria, tipo: course.tipo },
-    rama: MANUAL_BRANCH_NAME,
-    tipo: "complementaria",
+    rama,
+    tipo,
   };
 
+  if (tipo === "principal") {
+    return {
+      ...roadmap,
+      ramaPrincipal: { ...roadmap.ramaPrincipal, nodos: [...roadmap.ramaPrincipal.nodos, newNode] },
+      nodos: [...roadmap.nodos, newNode],
+    };
+  }
+
+  if (tipo === "repaso") {
+    const ramaRepaso: RoadmapBranch = roadmap.ramaRepaso
+      ? { ...roadmap.ramaRepaso, nodos: [...roadmap.ramaRepaso.nodos, newNode] }
+      : { nombre: REPASO_BRANCH_NAME, nodos: [newNode] };
+    return { ...roadmap, ramaRepaso, nodos: [...roadmap.nodos, newNode] };
+  }
+
+  const existing = roadmap.ramasComplementarias.find((r) => r.nombre === MANUAL_BRANCH_NAME);
   const ramasComplementarias: RoadmapBranch[] = existing
     ? roadmap.ramasComplementarias.map((r) => (r === existing ? { ...r, nodos: [...r.nodos, newNode] } : r))
     : [...roadmap.ramasComplementarias, { nombre: MANUAL_BRANCH_NAME, nodos: [newNode] }];
@@ -617,10 +714,28 @@ function withManualCourse(roadmap: Roadmap, courseId: string): Roadmap {
 // A roadmap with nothing generated yet — just an empty trigger node, ready
 // for AddCoursePanel to fill in by hand. Used by EmptyMapState below, and
 // only there: this is deliberately NOT what /limbo's real AI flow
-// produces, it's the fallback for "Omitir test" skipping that entirely.
-function buildStarterRoadmap(): Roadmap {
+// produces (no Gemini call — see startEmptyRoadmap's own comment), it's
+// the fallback for "Omitir test" skipping that entirely. The trigger's
+// "experiencia"/"habilidades" text is real CV data (parseCv's own field
+// extraction, not AI-written prose) when there's a CV to read from;
+// "estrategiaYEspecializacion" always explains plainly that there's no AI
+// analysis here instead of just staying blank, since that's the section
+// the trigger card opens by default.
+function buildStarterRoadmap(cv: ParsedCv): Roadmap {
+  const experiencia =
+    cv.experiencia.length > 0
+      ? cv.experiencia.map((e) => `${e.puesto} en ${e.empresa} (${e.fechas}).`).join(" ")
+      : "";
+  const habilidades = cv.herramientas.length > 0 ? `Herramientas que usás: ${cv.herramientas.join(", ")}.` : "";
+
   return {
-    trigger: { experiencia: "", habilidades: "", planDeCarrera: "", estrategiaYEspecializacion: "" },
+    trigger: {
+      experiencia,
+      habilidades,
+      planDeCarrera: "",
+      estrategiaYEspecializacion:
+        "Todavía no armamos un análisis con IA de tu perfil — buscá cursos en el mapa (arriba a la derecha) y agregalos vos para ir armando tu recorrido. Si preferís que la IA te lo arme entero, volvé a la conversación inicial.",
+    },
     ramaPrincipal: { nombre: "Tu recorrido", nodos: [] },
     ramaRepaso: null,
     ramasComplementarias: [],
@@ -630,30 +745,55 @@ function buildStarterRoadmap(): Roadmap {
 
 // Shown instead of the canvas when there's no roadmap to draw — reached via
 // /limbo's "Omitir test" shortcut (src/pages/Limbo.tsx), which skips the
-// conversation entirely. Real feedback: this used to be a dead end (just a
-// link back to /limbo) — now it offers a real path forward without the
-// conversation: attach a CV for at least a name/base to work from (same
-// parseCv pipeline the real flow uses, see startEmptyRoadmap), then land on
-// an empty map they build themselves via AddCoursePanel's search. Skipping
-// the CV entirely is also fine — "Empezar sin CV" still gets them to the
-// same empty, buildable map.
-function EmptyMapState({ onStart }: { onStart: (cvText: string | null) => void }) {
+// conversation entirely. Real feedback, two rounds:
+//   1. This used to be a dead end (just a link back to /limbo) — now
+//      offers a real path forward: attach a CV, or start building by hand.
+//   2. Attaching a CV first only extracted its fields locally with no AI
+//      call at all — real ask was that a CV alone IS enough to generate a
+//      real roadmap through the same /api/roadmap flow /limbo's
+//      conversation uses (see onGenerateFromCv), so this now actually
+//      calls it and shows a real "generating" state while it's in flight.
+//      "Empezar sin CV" skips that (no signal to generate from) and goes
+//      straight to the manual, buildable empty map — same fallback this
+//      lands on if the AI call itself fails (quota, network, etc.).
+function EmptyMapState({
+  onGenerateFromCv,
+  onStartManual,
+}: {
+  onGenerateFromCv: (cvText: string) => Promise<void>;
+  onStartManual: () => void;
+}) {
   const [status, setStatus] = useState<
-    { kind: "idle" } | { kind: "loading"; fileName: string } | { kind: "error"; message: string }
+    | { kind: "idle" }
+    | { kind: "reading"; fileName: string }
+    | { kind: "generating" }
+    | { kind: "error"; message: string }
   >({ kind: "idle" });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const busy = status.kind === "reading" || status.kind === "generating";
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
 
-    setStatus({ kind: "loading", fileName: file.name });
+    setStatus({ kind: "reading", fileName: file.name });
     const result = await extractPdfText(file);
-    if (result.ok) {
-      onStart(result.text);
-    } else {
+    if (!result.ok) {
       setStatus({ kind: "error", message: CV_ERROR_MESSAGES[result.reason] });
+      return;
+    }
+
+    setStatus({ kind: "generating" });
+    try {
+      await onGenerateFromCv(result.text);
+      // On success the parent's roadmap state flips away from null, so
+      // MapaBody stops rendering this component — no need to reset status.
+    } catch (err) {
+      setStatus({
+        kind: "error",
+        message: err instanceof Error ? err.message : "No pudimos generar tu recorrido. Probá de nuevo.",
+      });
     }
   };
 
@@ -666,8 +806,8 @@ function EmptyMapState({ onStart }: { onStart: (cvText: string | null) => void }
         Todavía no armaste tu recorrido
       </h2>
       <p className="max-w-sm font-['Inter:Regular',sans-serif] text-sm text-ink-muted">
-        Omitiste la conversación inicial. Adjuntá tu CV para tener una base de dónde partir, o empezá
-        directamente y armá tu mapa vos misma buscando y agregando cursos del catálogo.
+        Omitiste la conversación inicial. Adjuntá tu CV y la IA te arma un recorrido real a partir de él,
+        o empezá directamente y armá tu mapa vos misma buscando y agregando cursos del catálogo.
       </p>
 
       <input ref={fileInputRef} type="file" accept="application/pdf,.pdf" onChange={handleFileSelect} className="hidden" />
@@ -675,15 +815,22 @@ function EmptyMapState({ onStart }: { onStart: (cvText: string | null) => void }
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          disabled={status.kind === "loading"}
+          disabled={busy}
           className="flex items-center gap-2 rounded-pill bg-brand-hover px-6 py-3 font-['Plus_Jakarta_Sans:Medium',sans-serif] text-sm text-white transition-transform hover:scale-105 disabled:opacity-60"
         >
-          {status.kind === "loading" ? (
+          {status.kind === "reading" && (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
               Leyendo {status.fileName}…
             </>
-          ) : (
+          )}
+          {status.kind === "generating" && (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Generando tu recorrido con IA…
+            </>
+          )}
+          {!busy && (
             <>
               <FileText className="h-4 w-4" />
               Adjuntar tu CV (PDF)
@@ -691,14 +838,24 @@ function EmptyMapState({ onStart }: { onStart: (cvText: string | null) => void }
           )}
         </button>
         {status.kind === "error" && (
-          <p className="max-w-xs font-['Inter:Regular',sans-serif] text-xs text-red-600">{status.message}</p>
+          <div className="max-w-xs">
+            <p className="font-['Inter:Regular',sans-serif] text-xs text-red-600">{status.message}</p>
+            <button
+              type="button"
+              onClick={onStartManual}
+              className="mt-1 font-['Inter:Regular',sans-serif] text-xs text-ink-muted underline-offset-2 hover:text-ink hover:underline"
+            >
+              Seguir de todos modos, armo el mapa a mano
+            </button>
+          </div>
         )}
       </div>
 
       <button
         type="button"
-        onClick={() => onStart(null)}
-        className="font-['Inter:Regular',sans-serif] text-sm text-ink-muted underline-offset-2 hover:text-ink hover:underline"
+        onClick={onStartManual}
+        disabled={busy}
+        className="font-['Inter:Regular',sans-serif] text-sm text-ink-muted underline-offset-2 hover:text-ink hover:underline disabled:opacity-60"
       >
         Empezar sin CV
       </button>
@@ -707,7 +864,7 @@ function EmptyMapState({ onStart }: { onStart: (cvText: string | null) => void }
         to="/limbo"
         className="mt-2 font-['Inter:Regular',sans-serif] text-xs text-ink-muted hover:text-ink hover:underline"
       >
-        Preferís que la IA te arme el recorrido? Volvé a la conversación
+        Preferís que la IA te arme el recorrido completo con test vocacional? Volvé a la conversación
       </Link>
     </div>
   );
