@@ -7,6 +7,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 // ERR_MODULE_NOT_FOUND in production while still working under `vercel dev`
 // locally (confirmed live via `vercel logs` after a real prod deploy).
 import { getSystemPrompt, type ChatMode } from "./_lib/prompts.js";
+import { clientKey, isRateLimited } from "./_lib/rateLimit.js";
 
 /**
  * Shared conversational engine for both AI surfaces (the footer sales widget
@@ -41,6 +42,12 @@ const CHAT_MODES: ChatMode[] = [
   "discovery-resultado",
 ];
 
+// Caps on top of the shared rate limit — a single oversized message or a
+// runaway-long conversation both inflate a Gemini call's cost regardless of
+// how often the endpoint is hit, so request volume alone isn't enough.
+const MAX_MESSAGES = 60;
+const MAX_MESSAGE_CHARS = 4000;
+
 function isChatMode(value: unknown): value is ChatMode {
   return CHAT_MODES.includes(value as ChatMode);
 }
@@ -48,12 +55,21 @@ function isChatMode(value: unknown): value is ChatMode {
 function isChatMessage(value: unknown): value is ChatMessage {
   if (typeof value !== "object" || value === null) return false;
   const v = value as Record<string, unknown>;
-  return (v.role === "user" || v.role === "assistant") && typeof v.content === "string";
+  return (
+    (v.role === "user" || v.role === "assistant") &&
+    typeof v.content === "string" &&
+    v.content.length <= MAX_MESSAGE_CHARS
+  );
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method not allowed" });
+    return;
+  }
+
+  if (isRateLimited(clientKey(req))) {
+    res.status(429).json({ error: "Demasiadas solicitudes. Esperá un minuto y probá de nuevo." });
     return;
   }
 
@@ -69,8 +85,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(400).json({ error: "mode must be 'sales' or 'discovery'" });
     return;
   }
-  if (!Array.isArray(messages) || messages.length === 0 || !messages.every(isChatMessage)) {
-    res.status(400).json({ error: "messages must be a non-empty array of { role, content }" });
+  if (
+    !Array.isArray(messages) ||
+    messages.length === 0 ||
+    messages.length > MAX_MESSAGES ||
+    !messages.every(isChatMessage)
+  ) {
+    res.status(400).json({ error: `messages must be a non-empty array of at most ${MAX_MESSAGES} { role, content }` });
     return;
   }
 

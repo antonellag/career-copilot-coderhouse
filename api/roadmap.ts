@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { buildRoadmapPrompt, ROADMAP_RESPONSE_SCHEMA } from "./_lib/roadmapPrompt.js";
 import { getCourseById, type Course } from "./_lib/courseCatalog.js";
+import { clientKey, isRateLimited } from "./_lib/rateLimit.js";
 
 /**
  * Fase 4 (Resultado) roadmap generation. Separate endpoint from /api/chat —
@@ -28,6 +29,11 @@ import { getCourseById, type Course } from "./_lib/courseCatalog.js";
  */
 
 const MODEL_NAME = "gemini-3.5-flash";
+
+// A CV/transcript this long is either pasted-in garbage or an attempt to
+// run up the bill on one call — real transcripts (chat answers + parsed CV
+// text) land nowhere near this.
+const MAX_TRANSCRIPT_CHARS = 20_000;
 
 // Hardcoded rather than trusting the model's own "nombre" for this one
 // branch — direct product ask was this exact wording every time, not
@@ -101,6 +107,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
+  if (isRateLimited(clientKey(req))) {
+    res.status(429).json({ error: "Demasiadas solicitudes. Esperá un minuto y probá de nuevo." });
+    return;
+  }
+
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     res.status(500).json({ error: "GEMINI_API_KEY is not configured on the server" });
@@ -109,8 +120,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const { transcript, riasecLabels } = req.body ?? {};
 
-  if (typeof transcript !== "string" || !transcript.trim()) {
-    res.status(400).json({ error: "transcript must be a non-empty string" });
+  if (typeof transcript !== "string" || !transcript.trim() || transcript.length > MAX_TRANSCRIPT_CHARS) {
+    res.status(400).json({ error: `transcript must be a non-empty string of at most ${MAX_TRANSCRIPT_CHARS} characters` });
     return;
   }
   if (!Array.isArray(riasecLabels) || !riasecLabels.every((l) => typeof l === "string")) {

@@ -59,11 +59,11 @@ export function PlataformaLayout({
         <Link to="/" className="flex items-center gap-2 text-ink">
           <CoderhouseLogo className="h-7 w-auto" />
         </Link>
-        <span className="hidden rounded-pill bg-brand-hover/20 px-4 py-2.5 font-['Inter:SemiBold',sans-serif] text-sm font-semibold text-brand-hover lg:inline-block">
-          0/4 workshops
-        </span>
 
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
+          <span className="hidden rounded-pill bg-brand-hover/20 px-4 py-2.5 font-['Inter:SemiBold',sans-serif] text-sm font-semibold text-brand-hover lg:inline-block">
+            0/4 workshops
+          </span>
           <button
             type="button"
             className="inline-flex items-center gap-2 rounded-pill bg-brand-hover px-4 py-2.5 font-['Inter:SemiBold',sans-serif] text-sm font-semibold text-white transition-transform hover:scale-105"
