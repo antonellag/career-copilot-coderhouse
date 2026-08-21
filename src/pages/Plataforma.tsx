@@ -20,8 +20,10 @@ import {
   ChevronDown,
   ChevronUp,
   Circle,
+  FileText,
   Hand,
   HelpCircle,
+  Loader2,
   Map as MapIcon,
   Maximize,
   MousePointer2,
@@ -32,7 +34,7 @@ import {
   Undo2,
   X,
 } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { CatalogoView } from "@/components/plataforma/CatalogoView";
 import { NovedadesView } from "@/components/plataforma/NovedadesView";
@@ -40,9 +42,18 @@ import { PanelInicioView } from "@/components/plataforma/PanelInicioView";
 import { PerfilView } from "@/components/plataforma/PerfilView";
 import { PlataformaLayout, type PlataformaTab } from "@/components/plataforma/PlataformaLayout";
 import type { PortfolioProject } from "@/components/plataforma/PortfolioView";
-import { loadRoadmap, type Roadmap, type RoadmapNode, type RoadmapNodeTipo } from "@/lib/ai/roadmapClient";
+import {
+  loadRoadmap,
+  saveRoadmap,
+  type Roadmap,
+  type RoadmapBranch,
+  type RoadmapNode,
+  type RoadmapNodeTipo,
+} from "@/lib/ai/roadmapClient";
+import { CATALOG, type CatalogCourse } from "@/lib/catalogClient";
 import { parseCv } from "@/lib/cvParser";
-import { loadProfileInput } from "@/lib/profileStore";
+import { CV_ERROR_MESSAGES, extractPdfText } from "@/lib/pdf/extractPdfText";
+import { loadProfileInput, saveProfileInput } from "@/lib/profileStore";
 import { nextStatus, useRoadmapProgress, type CourseStatus } from "@/lib/roadmapProgress";
 
 /**
@@ -125,10 +136,37 @@ import { nextStatus, useRoadmapProgress, type CourseStatus } from "@/lib/roadmap
  */
 
 export default function Plataforma() {
-  const roadmap = useMemo(() => loadRoadmap(), []);
+  // State (not useMemo) so adding a course from the map's catalog picker
+  // (see MapaBody's own doc comment) can actually update what's on screen
+  // — persisted back to sessionStorage on every change so it survives a
+  // refresh, same as the roadmap generation flow itself.
+  const [roadmap, setRoadmap] = useState<Roadmap | null>(() => loadRoadmap());
   const { getStatus, getCompletedAt, advance } = useRoadmapProgress();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tab, setTab] = useState<PlataformaTab>("plan-carrera");
+
+  const addCourseToRoadmap = useCallback((courseId: string) => {
+    setRoadmap((prev) => {
+      if (!prev) return prev;
+      const updated = withManualCourse(prev, courseId);
+      saveRoadmap(updated);
+      return updated;
+    });
+  }, []);
+
+  // Reached from EmptyMapState when someone used /limbo's "Omitir test"
+  // shortcut and landed here with nothing generated — instead of a dead
+  // end, they get an empty starter roadmap (just the trigger card, no
+  // courses) they can build themselves via AddCoursePanel. The CV, if they
+  // attach one, isn't wasted: it still feeds CvView/the trigger card's
+  // name through the same parseCv(loadProfileInput(), ...) path the real
+  // /limbo flow uses.
+  const startEmptyRoadmap = useCallback((cvText: string | null) => {
+    if (cvText) saveProfileInput({ cvText, userAnswers: [] });
+    const starter = buildStarterRoadmap();
+    saveRoadmap(starter);
+    setRoadmap(starter);
+  }, []);
 
   // Portfolio state lives here (not in PortfolioView) so it survives
   // switching tabs — see PortfolioView's doc comment for why it's fine to
@@ -155,6 +193,8 @@ export default function Plataforma() {
           selectedId={selectedId}
           setSelectedId={setSelectedId}
           onViewPerfil={onViewPerfil}
+          onAddCourse={addCourseToRoadmap}
+          onStartEmpty={startEmptyRoadmap}
         />
       )}
       {tab === "catalogo" && <CatalogoView />}
@@ -185,6 +225,8 @@ function MapaBody({
   selectedId,
   setSelectedId,
   onViewPerfil,
+  onAddCourse,
+  onStartEmpty,
 }: {
   /** Null when /limbo's "Omitir test" shortcut skipped straight here — see the module doc comment. */
   roadmap: Roadmap | null;
@@ -193,31 +235,34 @@ function MapaBody({
   selectedId: string | null;
   setSelectedId: (id: string | null) => void;
   onViewPerfil: () => void;
+  onAddCourse: (courseId: string) => void;
+  onStartEmpty: (cvText: string | null) => void;
 }) {
   // Fixed over the canvas itself (top-right), not embedded in the shared
   // nav — see src/components/plataforma/PlataformaLayout.tsx's doc comment.
+  // Real feedback: this box isn't for finding a course already on the map
+  // (that was the old behavior — dimming non-matches) — it's for browsing
+  // the rest of the real catalog and adding a course that ISN'T here yet,
+  // so it now drives a picker (see AddCoursePanel below), not a filter.
   const [query, setQuery] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   // Recomputed whenever a status changes (getStatus's identity changes with
   // it — see useRoadmapProgress) so completed/in-progress nodes repaint.
-  const { nodes: builtNodes, edges } = useMemo(
+  const { nodes, edges } = useMemo(
     () => buildFlow(roadmap, getStatus, onViewPerfil),
     [roadmap, getStatus, onViewPerfil],
   );
 
-  // Real filter, not decorative. Dims (doesn't remove) non-matching course
-  // nodes so the chain/edges stay legible — the trigger node is exempt,
-  // it's not a course to search for.
-  const nodes = useMemo(() => {
+  // Every catalog course not already somewhere on this roadmap (any
+  // branch — id is unique across the whole thing) — these are what the
+  // picker below offers to add.
+  const availableCourses = useMemo(() => {
+    if (!roadmap) return [];
+    const placedIds = new Set(roadmap.nodos.map((n) => n.id));
     const q = query.trim().toLowerCase();
-    if (!q) return builtNodes;
-    return builtNodes.map((n) => {
-      if (n.id === "trigger") return n;
-      const node = roadmap?.nodos.find((rn) => rn.id === n.id);
-      const matches = node?.curso.nombre.toLowerCase().includes(q) ?? false;
-      return { ...n, style: { ...n.style, opacity: matches ? 1 : 0.25 } };
-    });
-  }, [builtNodes, query, roadmap]);
+    return CATALOG.filter((c) => !placedIds.has(c.id) && (q === "" || c.nombre.toLowerCase().includes(q)));
+  }, [roadmap, query]);
 
   const selectedNode = selectedId ? (roadmap?.nodos.find((n) => n.id === selectedId) ?? null) : null;
 
@@ -228,7 +273,7 @@ function MapaBody({
   const [tool, setTool] = useState<"select" | "hand">("hand");
   const [showMinimap, setShowMinimap] = useState(false);
 
-  if (!roadmap) return <EmptyMapState />;
+  if (!roadmap) return <EmptyMapState onStart={onStartEmpty} />;
 
   return (
     <div className="relative flex-1">
@@ -256,15 +301,14 @@ function MapaBody({
           <RoadmapLegend />
         </Panel>
         <Panel position="top-right">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Buscar curso"
-              className="w-56 rounded-pill border border-border-soft bg-white py-3 pl-10 pr-4 font-['Inter:Regular',sans-serif] text-sm text-ink shadow-[0_4px_16px_rgba(0,0,0,0.06)] outline-none placeholder:text-ink-muted"
-            />
-          </div>
+          <AddCoursePanel
+            query={query}
+            setQuery={setQuery}
+            open={pickerOpen}
+            setOpen={setPickerOpen}
+            courses={availableCourses}
+            onAdd={onAddCourse}
+          />
         </Panel>
         {showMinimap && (
           <MiniMap
@@ -457,12 +501,162 @@ function RoadmapLegend() {
   );
 }
 
+// Browses the real catalog for courses NOT yet on this roadmap and adds
+// one on click — replaces the old "dim non-matching map nodes" search
+// (real feedback: that read as searching among what's already placed,
+// when the actual need was finding what's still missing to add more).
+// Manually added courses land in their own "Agregados por vos" branch
+// (see withManualCourse) — kept separate from the AI-authored branches so
+// it's clear which cards came from a real personalized reason vs. a
+// person's own pick.
+function AddCoursePanel({
+  query,
+  setQuery,
+  open,
+  setOpen,
+  courses,
+  onAdd,
+}: {
+  query: string;
+  setQuery: (v: string) => void;
+  open: boolean;
+  setOpen: (v: boolean) => void;
+  courses: CatalogCourse[];
+  onAdd: (courseId: string) => void;
+}) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onClickOutside = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as globalThis.Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [open, setOpen]);
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onFocus={() => setOpen(true)}
+          placeholder="Agregar curso al mapa"
+          className="w-64 rounded-pill border border-border-soft bg-white py-3 pl-10 pr-4 font-['Inter:Regular',sans-serif] text-sm text-ink shadow-[0_4px_16px_rgba(0,0,0,0.06)] outline-none placeholder:text-ink-muted"
+        />
+      </div>
+
+      {open && (
+        <div className="absolute right-0 top-14 z-10 max-h-96 w-80 overflow-y-auto rounded-2xl border border-border-soft bg-white p-2 shadow-[0_8px_24px_rgba(0,0,0,0.12)]">
+          <p className="px-3 pb-2 pt-1 font-['Inter:Regular',sans-serif] text-[11px] leading-snug text-ink-muted">
+            Este buscador no filtra los cursos de tu mapa — buscá por nombre o palabra clave para{" "}
+            <span className="font-medium text-ink">agregar</span> cursos del catálogo que todavía no están acá.
+          </p>
+          {courses.length === 0 ? (
+            <p className="px-3 py-4 text-center font-['Inter:Regular',sans-serif] text-xs text-ink-muted">
+              {query
+                ? "No encontramos cursos con ese nombre para agregar."
+                : "Ya agregaste todos los cursos del catálogo a tu mapa."}
+            </p>
+          ) : (
+            courses.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => onAdd(c.id)}
+                className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-ink/5"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate font-['Inter:Regular',sans-serif] text-sm text-ink">{c.nombre}</span>
+                  <span className="block font-['Inter:Regular',sans-serif] text-xs text-ink-muted">{c.categoria}</span>
+                </span>
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-hover/15 text-brand-hover">
+                  <PlusIcon className="h-3.5 w-3.5" />
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Manually added courses (via AddCoursePanel) don't have AI reasoning
+// behind them, so `justificacion` says exactly that instead of faking a
+// personalized rationale. They all land in one shared branch (created on
+// first add) rather than mixed into rama_principal or the AI's own
+// ramas_complementarias — keeps "the AI picked this for you" and "you
+// picked this yourself" visually distinct on the map.
+const MANUAL_BRANCH_NAME = "Agregados por vos";
+
+function withManualCourse(roadmap: Roadmap, courseId: string): Roadmap {
+  if (roadmap.nodos.some((n) => n.id === courseId)) return roadmap; // already on the map, no-op
+  const course = CATALOG.find((c) => c.id === courseId);
+  if (!course) return roadmap;
+
+  const existing = roadmap.ramasComplementarias.find((r) => r.nombre === MANUAL_BRANCH_NAME);
+  const newNode: RoadmapNode = {
+    id: course.id,
+    orden: (existing?.nodos.length ?? 0) + 1,
+    justificacion: "Lo agregaste vos desde el catálogo — no tiene una razón generada por la IA.",
+    curso: { id: course.id, nombre: course.nombre, categoria: course.categoria, tipo: course.tipo },
+    rama: MANUAL_BRANCH_NAME,
+    tipo: "complementaria",
+  };
+
+  const ramasComplementarias: RoadmapBranch[] = existing
+    ? roadmap.ramasComplementarias.map((r) => (r === existing ? { ...r, nodos: [...r.nodos, newNode] } : r))
+    : [...roadmap.ramasComplementarias, { nombre: MANUAL_BRANCH_NAME, nodos: [newNode] }];
+
+  return { ...roadmap, ramasComplementarias, nodos: [...roadmap.nodos, newNode] };
+}
+
+// A roadmap with nothing generated yet — just an empty trigger node, ready
+// for AddCoursePanel to fill in by hand. Used by EmptyMapState below, and
+// only there: this is deliberately NOT what /limbo's real AI flow
+// produces, it's the fallback for "Omitir test" skipping that entirely.
+function buildStarterRoadmap(): Roadmap {
+  return {
+    trigger: { experiencia: "", habilidades: "", planDeCarrera: "", estrategiaYEspecializacion: "" },
+    ramaPrincipal: { nombre: "Tu recorrido", nodos: [] },
+    ramaRepaso: null,
+    ramasComplementarias: [],
+    nodos: [],
+  };
+}
+
 // Shown instead of the canvas when there's no roadmap to draw — reached via
 // /limbo's "Omitir test" shortcut (src/pages/Limbo.tsx), which skips the
-// conversation entirely, so there's nothing generated yet. No manual
-// course-builder exists yet (that's a separate feature); this just says so
-// plainly instead of the old hard page-level block.
-function EmptyMapState() {
+// conversation entirely. Real feedback: this used to be a dead end (just a
+// link back to /limbo) — now it offers a real path forward without the
+// conversation: attach a CV for at least a name/base to work from (same
+// parseCv pipeline the real flow uses, see startEmptyRoadmap), then land on
+// an empty map they build themselves via AddCoursePanel's search. Skipping
+// the CV entirely is also fine — "Empezar sin CV" still gets them to the
+// same empty, buildable map.
+function EmptyMapState({ onStart }: { onStart: (cvText: string | null) => void }) {
+  const [status, setStatus] = useState<
+    { kind: "idle" } | { kind: "loading"; fileName: string } | { kind: "error"; message: string }
+  >({ kind: "idle" });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    setStatus({ kind: "loading", fileName: file.name });
+    const result = await extractPdfText(file);
+    if (result.ok) {
+      onStart(result.text);
+    } else {
+      setStatus({ kind: "error", message: CV_ERROR_MESSAGES[result.reason] });
+    }
+  };
+
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
       <span className="flex h-14 w-14 items-center justify-center rounded-full bg-ink/5 text-ink-muted">
@@ -472,14 +666,48 @@ function EmptyMapState() {
         Todavía no armaste tu recorrido
       </h2>
       <p className="max-w-sm font-['Inter:Regular',sans-serif] text-sm text-ink-muted">
-        Omitiste la conversación inicial, así que no hay cursos para mostrar acá todavía. La carga
-        manual está en camino — por ahora, volvé a la conversación para generarlo.
+        Omitiste la conversación inicial. Adjuntá tu CV para tener una base de dónde partir, o empezá
+        directamente y armá tu mapa vos misma buscando y agregando cursos del catálogo.
       </p>
+
+      <input ref={fileInputRef} type="file" accept="application/pdf,.pdf" onChange={handleFileSelect} className="hidden" />
+      <div className="flex flex-col items-center gap-2">
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={status.kind === "loading"}
+          className="flex items-center gap-2 rounded-pill bg-brand-hover px-6 py-3 font-['Plus_Jakarta_Sans:Medium',sans-serif] text-sm text-white transition-transform hover:scale-105 disabled:opacity-60"
+        >
+          {status.kind === "loading" ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Leyendo {status.fileName}…
+            </>
+          ) : (
+            <>
+              <FileText className="h-4 w-4" />
+              Adjuntar tu CV (PDF)
+            </>
+          )}
+        </button>
+        {status.kind === "error" && (
+          <p className="max-w-xs font-['Inter:Regular',sans-serif] text-xs text-red-600">{status.message}</p>
+        )}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => onStart(null)}
+        className="font-['Inter:Regular',sans-serif] text-sm text-ink-muted underline-offset-2 hover:text-ink hover:underline"
+      >
+        Empezar sin CV
+      </button>
+
       <Link
         to="/limbo"
-        className="rounded-pill bg-brand-hover px-6 py-3 font-['Plus_Jakarta_Sans:Medium',sans-serif] text-sm text-white transition-transform hover:scale-105"
+        className="mt-2 font-['Inter:Regular',sans-serif] text-xs text-ink-muted hover:text-ink hover:underline"
       >
-        Ir a la conversación
+        Preferís que la IA te arme el recorrido? Volvé a la conversación
       </Link>
     </div>
   );

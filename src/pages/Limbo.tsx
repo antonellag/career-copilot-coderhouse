@@ -23,7 +23,7 @@ import { extractPhaseComplete } from "@/lib/ai/phaseComplete";
 import { useChat } from "@/lib/ai/useChat";
 import type { ChatMode } from "@/lib/ai/client";
 import { generateRoadmap, saveRoadmap } from "@/lib/ai/roadmapClient";
-import { extractPdfText } from "@/lib/pdf/extractPdfText";
+import { CV_ERROR_MESSAGES, extractPdfText } from "@/lib/pdf/extractPdfText";
 import { saveProfileInput } from "@/lib/profileStore";
 import { RIASEC_LABELS, type RiasecDimension } from "@/lib/riasec/questions";
 
@@ -70,14 +70,6 @@ type CvState =
   | { status: "loading"; fileName: string }
   | { status: "ready"; fileName: string; text: string }
   | { status: "error"; message: string };
-
-const CV_ERROR_MESSAGES: Record<string, string> = {
-  "not-a-pdf": "Por ahora solo podemos leer archivos PDF.",
-  "too-large": "El archivo pesa más de 8MB — probá con uno más liviano.",
-  "empty-or-scanned":
-    "No pudimos leer texto en este PDF (puede ser una imagen escaneada). Sin problema, seguimos por acá.",
-  "parse-failed": "Hubo un problema al leer el PDF. Sin problema, seguimos por acá.",
-};
 
 const PHASE_TO_MODE: Record<Exclude<LimboPhase, "test">, ChatMode> = {
   experiencia: "discovery-experiencia",

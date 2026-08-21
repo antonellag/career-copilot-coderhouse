@@ -18,6 +18,17 @@ export type ExtractPdfResult =
   | { ok: true; text: string }
   | { ok: false; reason: "not-a-pdf" | "too-large" | "empty-or-scanned" | "parse-failed" };
 
+// Shared between every CV-upload surface (src/pages/Limbo.tsx,
+// src/pages/Plataforma.tsx's EmptyMapState) so the same failure reads the
+// same copy everywhere instead of drifting.
+export const CV_ERROR_MESSAGES: Record<Extract<ExtractPdfResult, { ok: false }>["reason"], string> = {
+  "not-a-pdf": "Por ahora solo podemos leer archivos PDF.",
+  "too-large": "El archivo pesa más de 8MB — probá con uno más liviano.",
+  "empty-or-scanned":
+    "No pudimos leer texto en este PDF (puede ser una imagen escaneada). Sin problema, seguimos por acá.",
+  "parse-failed": "Hubo un problema al leer el PDF. Sin problema, seguimos por acá.",
+};
+
 export function validateCvFile(file: File): ExtractPdfResult | null {
   const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
   if (!isPdf) return { ok: false, reason: "not-a-pdf" };
