@@ -159,6 +159,21 @@ export default function Plataforma() {
     });
   }, []);
 
+  // Real ask, separate from just repositioning a card visually: dragging a
+  // card should be able to change which course leads to which — the
+  // sequence order within its branch, not just where it sits on screen.
+  // MapaBody calls this once a drag finishes, passing that branch's node
+  // ids sorted by their current on-screen x — see findBranchNodeIds/
+  // MapaBody's handleNodesChange for how that list gets built.
+  const reorderBranch = useCallback((orderedIds: string[]) => {
+    setRoadmap((prev) => {
+      if (!prev) return prev;
+      const updated = withReorderedBranch(prev, orderedIds);
+      if (updated !== prev) saveRoadmap(updated);
+      return updated;
+    });
+  }, []);
+
   // Reached from EmptyMapState when someone used /limbo's "Omitir test"
   // shortcut and landed here with nothing generated. Two real paths, not
   // one: attaching a CV IS enough signal to actually call the same
@@ -217,6 +232,7 @@ export default function Plataforma() {
           setSelectedId={setSelectedId}
           onViewPerfil={onViewPerfil}
           onAddCourse={addCourseToRoadmap}
+          onReorderBranch={reorderBranch}
           onGenerateFromCv={generateRoadmapFromCv}
           onStartManual={startManualRoadmap}
         />
@@ -271,6 +287,7 @@ function MapaBody({
   setSelectedId,
   onViewPerfil,
   onAddCourse,
+  onReorderBranch,
   onGenerateFromCv,
   onStartManual,
 }: {
@@ -282,6 +299,7 @@ function MapaBody({
   setSelectedId: (id: string | null) => void;
   onViewPerfil: () => void;
   onAddCourse: (courseId: string, tipo: RoadmapNodeTipo) => void;
+  onReorderBranch: (orderedIds: string[]) => void;
   onGenerateFromCv: (cvText: string) => Promise<void>;
   onStartManual: () => void;
 }) {
@@ -342,14 +360,27 @@ function MapaBody({
         (c): c is Extract<NodeChange, { type: "position" }> => c.type === "position" && !!c.position && c.dragging === false,
       );
       if (finished.length === 0) return;
-      setPositionOverrides((prev) => {
-        const next = { ...prev };
-        for (const c of finished) next[c.id] = c.position!;
-        saveNodePositions(next);
-        return next;
-      });
+
+      const updatedOverrides = { ...positionOverrides };
+      for (const c of finished) updatedOverrides[c.id] = c.position!;
+      setPositionOverrides(updatedOverrides);
+      saveNodePositions(updatedOverrides);
+
+      // Reordering: a finished drag can change which course leads to
+      // which, not just where it sits — see reorderBranch's own doc
+      // comment (src/pages/Plataforma.tsx). x-position (already known for
+      // the just-dragged node via its own change, current state for
+      // everyone else in its branch) decides the new left-to-right order.
+      if (!roadmap) return;
+      const effectiveX = (id: string) => updatedOverrides[id]?.x ?? nodes.find((n) => n.id === id)?.position.x ?? 0;
+      for (const c of finished) {
+        if (c.id === "trigger") continue;
+        const branchIds = findBranchNodeIds(roadmap, c.id);
+        if (!branchIds || branchIds.length < 2) continue;
+        onReorderBranch([...branchIds].sort((a, b) => effectiveX(a) - effectiveX(b)));
+      }
     },
-    [onNodesChangeInternal],
+    [onNodesChangeInternal, positionOverrides, roadmap, nodes, onReorderBranch],
   );
 
   // Every catalog course not already somewhere on this roadmap (any
@@ -791,6 +822,73 @@ function withManualCourse(roadmap: Roadmap, courseId: string, tipo: RoadmapNodeT
     : [...roadmap.ramasComplementarias, { nombre: MANUAL_BRANCH_NAME, nodos: [newNode] }];
 
   return { ...roadmap, ramasComplementarias, nodos: [...roadmap.nodos, newNode] };
+}
+
+// Which branch (as a plain list of that branch's node ids) a given node
+// belongs to — null if it's not found anywhere. Used by MapaBody's
+// handleNodesChange to know which other cards a finished drag's new order
+// needs to be compared against; the returned order doesn't matter, only
+// membership does (the caller re-sorts by x itself).
+function findBranchNodeIds(roadmap: Roadmap, nodeId: string): string[] | null {
+  if (roadmap.ramaPrincipal.nodos.some((n) => n.id === nodeId)) {
+    return roadmap.ramaPrincipal.nodos.map((n) => n.id);
+  }
+  if (roadmap.ramaRepaso?.nodos.some((n) => n.id === nodeId)) {
+    return roadmap.ramaRepaso.nodos.map((n) => n.id);
+  }
+  const rama = roadmap.ramasComplementarias.find((r) => r.nodos.some((n) => n.id === nodeId));
+  return rama ? rama.nodos.map((n) => n.id) : null;
+}
+
+// Re-sequences one branch to match `orderedIds` (a full permutation of
+// that branch's own node ids, decided by MapaBody from current on-screen
+// x-position after a drag) — reassigns "orden" 1..n to match, rebuilds the
+// flat `nodos` list, and leaves every other branch untouched. Returns the
+// same `roadmap` reference unchanged if `orderedIds` doesn't match any one
+// branch's id set exactly (stale drag after the roadmap changed elsewhere,
+// etc.) — callers use reference equality to decide whether to persist.
+function withReorderedBranch(roadmap: Roadmap, orderedIds: string[]): Roadmap {
+  const idSet = new Set(orderedIds);
+  const reorder = (nodos: RoadmapNode[]): RoadmapNode[] | null => {
+    if (nodos.length !== orderedIds.length || !nodos.every((n) => idSet.has(n.id))) return null;
+    const byId = new Map(nodos.map((n) => [n.id, n]));
+    return orderedIds.map((id, i) => ({ ...byId.get(id)!, orden: i + 1 }));
+  };
+
+  const principal = reorder(roadmap.ramaPrincipal.nodos);
+  if (principal) {
+    const ramaPrincipal = { ...roadmap.ramaPrincipal, nodos: principal };
+    return {
+      ...roadmap,
+      ramaPrincipal,
+      nodos: [...ramaPrincipal.nodos, ...(roadmap.ramaRepaso?.nodos ?? []), ...roadmap.ramasComplementarias.flatMap((r) => r.nodos)],
+    };
+  }
+
+  if (roadmap.ramaRepaso) {
+    const repaso = reorder(roadmap.ramaRepaso.nodos);
+    if (repaso) {
+      const ramaRepaso = { ...roadmap.ramaRepaso, nodos: repaso };
+      return {
+        ...roadmap,
+        ramaRepaso,
+        nodos: [...roadmap.ramaPrincipal.nodos, ...ramaRepaso.nodos, ...roadmap.ramasComplementarias.flatMap((r) => r.nodos)],
+      };
+    }
+  }
+
+  const idx = roadmap.ramasComplementarias.findIndex((r) => reorder(r.nodos) !== null);
+  if (idx !== -1) {
+    const reordered = reorder(roadmap.ramasComplementarias[idx].nodos)!;
+    const ramasComplementarias = roadmap.ramasComplementarias.map((r, i) => (i === idx ? { ...r, nodos: reordered } : r));
+    return {
+      ...roadmap,
+      ramasComplementarias,
+      nodos: [...roadmap.ramaPrincipal.nodos, ...(roadmap.ramaRepaso?.nodos ?? []), ...ramasComplementarias.flatMap((r) => r.nodos)],
+    };
+  }
+
+  return roadmap;
 }
 
 // A roadmap with nothing generated yet — just an empty trigger node, ready
