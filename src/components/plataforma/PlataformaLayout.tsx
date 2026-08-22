@@ -35,12 +35,12 @@ import { loadProfileInput } from "@/lib/profileStore";
 
 export type PlataformaTab = "panel" | "plan-carrera" | "catalogo" | "perfil" | "novedades";
 
-const TABS: { id: PlataformaTab; label: string; hideBelow?: string }[] = [
-  { id: "panel", label: "Panel inicio", hideBelow: "sm" },
+const TABS: { id: PlataformaTab; label: string }[] = [
+  { id: "panel", label: "Panel inicio" },
   { id: "plan-carrera", label: "Plan carrera" },
-  { id: "catalogo", label: "Catálogo", hideBelow: "sm" },
-  { id: "perfil", label: "Perfil", hideBelow: "md" },
-  { id: "novedades", label: "Novedades", hideBelow: "md" },
+  { id: "catalogo", label: "Catálogo" },
+  { id: "perfil", label: "Perfil" },
+  { id: "novedades", label: "Novedades" },
 ];
 
 export function PlataformaLayout({
@@ -84,7 +84,16 @@ export function PlataformaLayout({
 
       {/* Sub-nav row */}
       <div className="flex shrink-0 flex-wrap items-center gap-4 border-b border-border-soft bg-white px-5 py-4 sm:px-8">
-        <nav className="flex flex-wrap items-center gap-6 md:gap-10">
+        {/* Real bug (not a missing-feature report): every tab used to
+            render, but Perfil/Novedades carried `hidden md:inline` —
+            below the md breakpoint they vanished from the nav with no
+            fallback, so those pages were built and deployed but
+            unreachable on a narrow window/phone. Now the row scrolls
+            horizontally instead of hiding anything, same pattern already
+            used by every sub-nav's own mobile picker in this app
+            (CatalogoView/PerfilView) — every tab stays clickable at any
+            width. */}
+        <nav className="flex flex-nowrap items-center gap-6 overflow-x-auto md:gap-10">
           {TABS.map((t) => {
             const active = activeTab === t.id;
             return (
@@ -92,9 +101,9 @@ export function PlataformaLayout({
                 key={t.id}
                 type="button"
                 onClick={() => onTabChange(t.id)}
-                className={`whitespace-nowrap font-['Inter:Regular',sans-serif] text-sm transition-colors md:text-base ${
-                  t.hideBelow === "sm" ? "hidden sm:inline" : t.hideBelow === "md" ? "hidden md:inline" : ""
-                } ${active ? "font-extrabold text-brand-hover" : "font-normal text-ink hover:text-brand-hover"}`}
+                className={`shrink-0 whitespace-nowrap font-['Inter:Regular',sans-serif] text-sm transition-colors md:text-base ${
+                  active ? "font-extrabold text-brand-hover" : "font-normal text-ink hover:text-brand-hover"
+                }`}
               >
                 {t.label}
               </button>
