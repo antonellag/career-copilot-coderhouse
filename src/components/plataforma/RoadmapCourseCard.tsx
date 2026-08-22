@@ -112,7 +112,13 @@ export function RoadmapCourseCard({ node, status }: { node: RoadmapNode; status:
 
   return (
     <div
-      className="flex h-full w-[260px] shrink-0 flex-col overflow-hidden rounded-2xl bg-white text-left"
+      // No h-full here on purpose — mixing an explicit height:100% with the
+      // parent row's `items-stretch` fights it (100% of an indefinite/auto
+      // parent height resolves as if unset, so every card fell back to its
+      // own content height instead of matching its tallest sibling). Plain
+      // `items-stretch` on the row already stretches every direct flex
+      // child to the same height with no explicit height needed here.
+      className="flex w-[260px] shrink-0 flex-col overflow-hidden rounded-2xl bg-white text-left"
       style={{
         border: `1.5px solid ${status === "completado" ? "#22c55e" : accent}`,
         boxShadow: "0 2px 10px rgba(0,0,0,0.06)",

@@ -254,11 +254,11 @@ function ActiveCourseCard({ node, onTabChange }: { node: RoadmapNode; onTabChang
   const catColor = categoryColor(curso.categoria);
   const Icon = categoryIcon(curso.categoria);
   return (
-    // Same 260px width + h-full/flex-1 pattern as RoadmapCourseCard so
-    // every card in the row (whichever type) lines up to the same height
-    // and width, never taller/shorter or narrower/wider than its
-    // neighbors just because it has less content.
-    <div className="flex h-full w-[260px] shrink-0 flex-col overflow-hidden rounded-2xl border border-border-soft bg-white">
+    // Same 260px width as RoadmapCourseCard so every card in the row lines
+    // up. No h-full here — see that file's own comment on why an explicit
+    // height fights the parent row's `items-stretch` instead of relying on
+    // it.
+    <div className="flex w-[260px] shrink-0 flex-col overflow-hidden rounded-2xl border border-border-soft bg-white">
       <div className="relative flex aspect-[16/7] items-center justify-center overflow-hidden">
         {curso.imagen ? (
           <img src={curso.imagen} alt="" className="absolute inset-0 h-full w-full object-cover" />
