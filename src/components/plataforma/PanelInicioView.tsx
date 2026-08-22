@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronLeft, ChevronRight, LayoutDashboard, Lock, Sparkles } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, LayoutDashboard, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { Roadmap, RoadmapNode, RoadmapNodeTipo } from "@/lib/ai/roadmapClient";
 import { pendingTasksFor } from "@/lib/panelInicioContent";
@@ -47,12 +47,9 @@ const RAMA_OPTIONS: { label: string; value: RamaFilterValue }[] = [
  *   decides which CARD TYPE it gets: "en progreso" gets ActiveCourseCard
  *   (real horario when the catalog has one, "Ingresar al curso" jumps to
  *   Plan carrera); anything else gets the same RoadmapCourseCard used
- *   elsewhere (Comprar, decorative), with a locked overlay when its
- *   REAL branch-predecessor isn't completado yet (ownerBranchNodes looks
- *   up each node's actual owning branch — ramaPrincipal / ramaRepaso /
- *   the specific ramasComplementarias entry — regardless of which filter
- *   is currently narrowing the view) — pure visual read of real state,
- *   not a second flag.
+ *   elsewhere (Comprar, decorative). No lock overlay here — real
+ *   feedback was not to gate any card visually, unlike the full Plan
+ *   carrera map, which still enforces its own real sequential state.
  *
  * DECORATIVE, explicitly (same fabricated-and-documented pattern as
  * courseDetailContent.ts/panelInicioContent.ts everywhere else in this
@@ -105,17 +102,6 @@ export function PanelInicioView({
       ),
     [allNodes, ramaFilter, estadoFilter, getStatus],
   );
-
-  // A node's real predecessor for locking has to come from its OWN real
-  // branch's order (ramaPrincipal / ramaRepaso / the specific
-  // complementaria it belongs to) — never from the currently filtered
-  // view, which can mix nodes from different branches together.
-  const ownerBranchNodes = (node: RoadmapNode): RoadmapNode[] => {
-    if (!roadmap) return [node];
-    if (node.tipo === "principal") return roadmap.ramaPrincipal.nodos;
-    if (node.tipo === "repaso") return roadmap.ramaRepaso?.nodos ?? [node];
-    return roadmap.ramasComplementarias.find((b) => b.nombre === node.rama)?.nodos ?? [node];
-  };
 
   // The sidebar's agenda keys off whichever course is "en progreso" first —
   // Plan de carrera / Tareas pendientes above already show every active
@@ -190,21 +176,7 @@ export function PanelInicioView({
                       if (status === "en-progreso") {
                         return <ActiveCourseCard key={node.id} node={node} onTabChange={onTabChange} />;
                       }
-                      const branchNodes = ownerBranchNodes(node);
-                      const index = branchNodes.findIndex((n) => n.id === node.id);
-                      const locked = isLocked(branchNodes, index, getStatus);
-                      return (
-                        <div key={node.id} className="relative shrink-0">
-                          <RoadmapCourseCard node={node} status={status} />
-                          {locked && (
-                            <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-white/75">
-                              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-ink/10 text-ink-muted">
-                                <Lock className="h-4 w-4" />
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      );
+                      return <RoadmapCourseCard key={node.id} node={node} status={status} />;
                     })
                   )}
                 </div>
@@ -282,8 +254,12 @@ function ActiveCourseCard({ node, onTabChange }: { node: RoadmapNode; onTabChang
   const catColor = categoryColor(curso.categoria);
   const Icon = categoryIcon(curso.categoria);
   return (
-    <div className="flex w-[220px] shrink-0 flex-col overflow-hidden rounded-2xl border border-border-soft bg-white">
-      <div className="relative flex aspect-[16/9] items-center justify-center overflow-hidden">
+    // Same 260px width + h-full/flex-1 pattern as RoadmapCourseCard so
+    // every card in the row (whichever type) lines up to the same height
+    // and width, never taller/shorter or narrower/wider than its
+    // neighbors just because it has less content.
+    <div className="flex h-full w-[260px] shrink-0 flex-col overflow-hidden rounded-2xl border border-border-soft bg-white">
+      <div className="relative flex aspect-[16/7] items-center justify-center overflow-hidden">
         {curso.imagen ? (
           <img src={curso.imagen} alt="" className="absolute inset-0 h-full w-full object-cover" />
         ) : (
@@ -297,12 +273,12 @@ function ActiveCourseCard({ node, onTabChange }: { node: RoadmapNode; onTabChang
           En curso
         </span>
       </div>
-      <div className="p-3.5">
+      <div className="flex flex-1 flex-col p-3.5">
         <p className="mb-1 line-clamp-2 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-sm font-bold leading-tight text-ink">
           {curso.nombre}
         </p>
         <p className="mb-2.5 font-['Inter:Regular',sans-serif] text-xs text-ink-muted">{curso.horario ?? "A tu ritmo"}</p>
-        <div className="mb-3 h-1.5 w-full overflow-hidden rounded-pill bg-ink/10">
+        <div className="mb-3 mt-auto h-1.5 w-full overflow-hidden rounded-pill bg-ink/10">
           <div className="h-full w-3/5 rounded-pill bg-brand-hover" />
         </div>
         <button
@@ -315,14 +291,6 @@ function ActiveCourseCard({ node, onTabChange }: { node: RoadmapNode; onTabChang
       </div>
     </div>
   );
-}
-
-// Purely a visual read of the real per-node status — not a stored flag.
-function isLocked(branchNodes: RoadmapNode[], index: number, getStatus: (id: string) => CourseStatus): boolean {
-  if (index <= 0) return false;
-  const status = getStatus(branchNodes[index].id);
-  if (status !== "no-iniciado") return false;
-  return getStatus(branchNodes[index - 1].id) !== "completado";
 }
 
 // Example content (pendingTasksFor), restructured per-class per the

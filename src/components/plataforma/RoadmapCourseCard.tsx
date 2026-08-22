@@ -112,7 +112,7 @@ export function RoadmapCourseCard({ node, status }: { node: RoadmapNode; status:
 
   return (
     <div
-      className="flex w-[260px] shrink-0 flex-col overflow-hidden rounded-2xl bg-white text-left"
+      className="flex h-full w-[260px] shrink-0 flex-col overflow-hidden rounded-2xl bg-white text-left"
       style={{
         border: `1.5px solid ${status === "completado" ? "#22c55e" : accent}`,
         boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
@@ -147,7 +147,11 @@ export function RoadmapCourseCard({ node, status }: { node: RoadmapNode; status:
         )}
       </div>
 
-      <div className="px-3.5 py-3">
+      {/* flex-1 + the price/tipo block's mt-auto below keep every card the
+          same height in a row (Panel inicio's Plan de carrera) regardless
+          of how much text a course's name/price/branch badge takes up —
+          Comprar + the status line always sit flush at the bottom. */}
+      <div className="flex flex-1 flex-col px-3.5 py-3">
         <p className="mb-1.5 line-clamp-2 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-sm font-bold leading-tight text-ink">
           {curso.nombre}
         </p>
@@ -161,7 +165,7 @@ export function RoadmapCourseCard({ node, status }: { node: RoadmapNode; status:
         )}
 
         {curso.precioFinal !== undefined ? (
-          <div className="mb-2.5 flex flex-col gap-0.5 leading-tight">
+          <div className="mb-2.5 mt-auto flex flex-col gap-0.5 leading-tight">
             {curso.cuotas !== undefined && (
               <span className="font-['Inter:Regular',sans-serif] text-[11px] font-medium text-ink-muted">
                 Hasta {curso.cuotas} cuotas sin interés de
@@ -180,7 +184,7 @@ export function RoadmapCourseCard({ node, status }: { node: RoadmapNode; status:
             </span>
           </div>
         ) : (
-          <span className="mb-2.5 block font-['Inter:Regular',sans-serif] text-xs text-ink-muted">{tipoLabel(curso.tipo)}</span>
+          <span className="mb-2.5 mt-auto block font-['Inter:Regular',sans-serif] text-xs text-ink-muted">{tipoLabel(curso.tipo)}</span>
         )}
 
         <button
