@@ -43,6 +43,7 @@ import {
   Palette,
   Plus as PlusIcon,
   Redo2,
+  Repeat2,
   Search,
   ShieldCheck,
   Sparkles,
@@ -68,7 +69,7 @@ import {
   type RoadmapNode,
   type RoadmapNodeTipo,
 } from "@/lib/ai/roadmapClient";
-import { CATALOG, type CatalogCourse } from "@/lib/catalogClient";
+import { CATALOG, findAlternateModalities, type CatalogCourse } from "@/lib/catalogClient";
 import {
   descriptionFor,
   difficultyFor,
@@ -1107,6 +1108,13 @@ function DetailPanel({
     status === "no-iniciado" ? "Marcar como en progreso" : status === "en-progreso" ? "Marcar como completado" : null;
 
   const curso = node.curso;
+  // Real feedback: the roadmap AI used to be able to recommend the same
+  // topic in multiple modalities at once (e.g. Diseño UX/UI as curso,
+  // carrera AND diplomatura). It's now told to pick exactly one (see
+  // api/_lib/roadmapPrompt.ts) — this surfaces the real alternates it
+  // didn't pick, so switching commitment level never needs a duplicate
+  // node on the map.
+  const alternateModalities = findAlternateModalities(curso);
   const isScheduled = curso.tipo !== "on-demand" && !!curso.proximaFecha;
   // upcomingDatesFrom/temarioFor/etc. are explicitly fabricated content —
   // see src/lib/courseDetailContent.ts's own doc comment for the full
@@ -1178,6 +1186,32 @@ function DetailPanel({
         </p>
         <p className="font-['Inter:Regular',sans-serif] text-[15px] leading-relaxed text-ink">{node.justificacion}</p>
       </div>
+
+      {/* Cambiar de modalidad — see the doc comment on alternateModalities
+          above. Real catalog entries only (src/lib/catalogClient.ts's
+          findAlternateModalities), the blurb per tipo is the only
+          decorative part (no real duration data exists per-modality). */}
+      {alternateModalities.length > 0 && (
+        <div className="border-b border-border-soft px-5 py-5">
+          <p className="mb-1 flex items-center gap-1.5 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-sm text-ink">
+            <Repeat2 className="h-3.5 w-3.5 text-ink-muted" />
+            Cambiar de modalidad
+          </p>
+          <p className="mb-3 font-['Inter:Regular',sans-serif] text-xs text-ink-muted">
+            Mismo tema, otro nivel de compromiso — disponible en el catálogo.
+          </p>
+          <div className="flex flex-col gap-2">
+            {alternateModalities.map((alt) => (
+              <div key={alt.id} className="rounded-xl border border-border-soft p-3">
+                <p className="font-['Inter:Regular',sans-serif] text-sm text-ink">{alt.nombre}</p>
+                <p className="font-['Inter:Regular',sans-serif] text-xs text-ink-muted">
+                  {tipoLabel(alt.tipo)} · {modalityBlurb(alt.tipo)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Próximas fechas — real first date + horario, weekly cadence
           extended from there (courseDetailContent.ts). "Comprar curso" is
@@ -1332,6 +1366,17 @@ function tipoLabel(tipo: string): string {
   if (tipo === "diplomatura") return "Diplomatura";
   if (tipo === "on-demand") return "On-demand";
   return "Curso";
+}
+
+// One-line description of what committing to each modality means — the
+// only decorative part of "Cambiar de modalidad" (DetailPanel above),
+// since course-catalog.json has no real per-modality duration/depth field
+// to pull from.
+function modalityBlurb(tipo: string): string {
+  if (tipo === "carrera") return "el camino más largo y completo, para especializarte de punta a punta.";
+  if (tipo === "diplomatura") return "profundidad intermedia, un programa enfocado en el tema.";
+  if (tipo === "on-demand") return "a tu propio ritmo, sin cursada en vivo.";
+  return "un curso puntual, el compromiso más liviano.";
 }
 
 // Wider than the course cards (320 vs 220) — a real profile card now, per

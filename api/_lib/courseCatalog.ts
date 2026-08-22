@@ -57,3 +57,56 @@ export const TRANSVERSAL_CATEGORIES = ["Softs Skills", "Negocios", "Producto"];
 export function catalogAsPromptText(): string {
   return COURSE_CATALOG.map((c) => `- id: "${c.id}" | ${c.nombre} (${c.tipo}, ${c.categoria})`).join("\n");
 }
+
+// Same-topic-different-modality detector — mirrored from src/lib/
+// catalogClient.ts's findAlternateModalities (that file can't be imported
+// here: it's a Vite/browser module, not bundled into this Vercel
+// function), see that copy's doc comment for the full reasoning and match
+// examples. Used only to build promptSameTopicExamples() below: real,
+// catalog-derived examples of same-topic/different-modality clusters, so
+// the roadmap prompt's "pick one modality per topic" rule
+// (api/_lib/roadmapPrompt.ts) has concrete anchors instead of an abstract
+// instruction alone.
+const TIPO_PREFIX_RE = /^(carrera de|diplomatura( en| de)?|curso de)\s+/i;
+const STOPWORDS = new Set(["de", "la", "el", "en", "y", "para", "con", "tu", "tus", "un", "una", "del", "al", "los", "las", "que"]);
+
+function topicTokens(nombre: string): Set<string> {
+  const normalized = nombre.toLowerCase().replace(TIPO_PREFIX_RE, "").trim();
+  return new Set(normalized.split(/[\s/&:,-]+/).filter((w) => w.length > 0 && !STOPWORDS.has(w)));
+}
+
+function isSameTopic(a: Course, b: Course): boolean {
+  if (a.id === b.id || a.categoria !== b.categoria || a.tipo === b.tipo) return false;
+  const ta = topicTokens(a.nombre);
+  const tb = topicTokens(b.nombre);
+  const minSize = Math.min(ta.size, tb.size);
+  if (minSize === 0) return false;
+  // Full containment, not a partial-overlap ratio — see the mirrored copy
+  // in src/lib/catalogClient.ts for why (a lower bar false-positived on
+  // real catalog names sharing one generic word like "ai").
+  const shared = [...ta].filter((t) => tb.has(t)).length;
+  return shared === minSize;
+}
+
+/**
+ * Real clusters of 2+ catalog courses that are the same topic in different
+ * modalities (e.g. "Carrera de Diseño UX/UI" + "Diplomatura Diseño UX/UI"
+ * + the on-demand "UX/UI & Diseño de Producto Digital") — formatted as a
+ * few lines for the prompt so "one modality per topic" has real examples
+ * from THIS catalog, not a generic rule the model has to infer blind.
+ */
+export function promptSameTopicExamples(): string {
+  const seen = new Set<string>();
+  const clusters: Course[][] = [];
+  for (const course of COURSE_CATALOG) {
+    if (seen.has(course.id)) continue;
+    const alternates = COURSE_CATALOG.filter((c) => isSameTopic(course, c));
+    if (alternates.length === 0) continue;
+    const cluster = [course, ...alternates];
+    cluster.forEach((c) => seen.add(c.id));
+    clusters.push(cluster);
+  }
+  return clusters
+    .map((cluster) => `- ${cluster.map((c) => `"${c.nombre}" (${c.tipo})`).join(" / ")} → son el mismo tema, elegí solo uno`)
+    .join("\n");
+}

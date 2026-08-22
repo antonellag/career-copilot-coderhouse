@@ -18,28 +18,46 @@
  *   needs to LEARN — sequential), `rama_repaso` (courses covering what they
  *   ALREADY know, per real CV/conversation evidence — a refresher offer,
  *   never new learning; omitted entirely when there's no real evidence to
- *   point at), and 2-3 `ramas_complementarias` (Softs Skills/Negocios/
+ *   point at), and 0-3 `ramas_complementarias` (Softs Skills/Negocios/
  *   Producto — TRANSVERSAL_CATEGORIES, optional depth). Older versions of
  *   this prompt had ramas_complementarias fork from a specific
  *   rama_principal node (`nace_desde`) instead of the trigger — dropped
  *   per direct feedback: seeing all 3 paths fan out from the one profile
  *   card reads much clearer than one branch sprouting from the middle of
  *   another.
- * - Volume: rama_principal + ramas_complementarias together target 15-20
- *   total courses (explicit, non-negotiable product decision — the roadmap
- *   is meant to feel like a full catalog tour, not a thin teaser).
- *   rama_repaso is separate from that count, capped small (0-3) since it's
- *   just acknowledging existing knowledge, not the growth path. Because no
- *   single category has 20 courses on its own (the biggest, Data, has 11 —
- *   see api/_lib/courseCatalog.ts's real counts), `rama_principal` is
- *   allowed to span more than one category as long as they form one
- *   coherent narrative (e.g. Programación + Inteligencia Artificial + Data
- *   under "Especialización en IA Full Stack") — never an arbitrary mix.
- *   `ramas_complementarias` still stays confined to TRANSVERSAL_CATEGORIES
- *   only.
+ *
+ * Three more real-feedback fixes, all from the same round (a non-technical
+ * tester ran /limbo end to end and the roadmap it produced had all three
+ * problems at once):
+ * - No fixed volume target anymore. An earlier version of this prompt
+ *   mandated "15-20 courses total, always add 1-2 complementary" — that
+ *   produced padded, unfocused roadmaps for people who genuinely only
+ *   needed 3-5 well-chosen courses. Node count is now a CONSEQUENCE of fit,
+ *   never a target: ramas_complementarias can legitimately be an empty
+ *   array, and rama_principal's length is calibrated (see below), not
+ *   fixed.
+ * - One modality per topic. The same tester got Diseño UX/UI recommended
+ *   as a curso, a carrera AND a diplomatura simultaneously — those are the
+ *   same real Coderhouse offering at 3 commitment levels, not 3 different
+ *   things to stack. The model now has to pick exactly one modality per
+ *   topic, with real catalog-derived examples of what "same topic" looks
+ *   like (promptSameTopicExamples() — see api/_lib/courseCatalog.ts). The
+ *   alternates it didn't pick aren't lost: src/pages/Plataforma.tsx's
+ *   DetailPanel surfaces them via src/lib/catalogClient.ts's
+ *   findAlternateModalities() in a "Cambiar de modalidad" block, so
+ *   switching commitment level never requires a duplicate node.
+ * - Calibrated to tech distance + pivot size. Same tester (zero tech
+ *   background) got a scattershot mix of diseño + desarrollo + IA +
+ *   branding all at once — too many unrelated directions to choose between
+ *   for someone starting from zero. The prompt now has the model read the
+ *   full conversation (already-available signal, no new question added to
+ *   the flow) to gauge tech-background distance and pivot size BEFORE
+ *   building the roadmap, and calibrates both length and modality
+ *   accordingly (see the prompt body's "Antes de armar el recorrido"
+ *   section).
  */
 import { SchemaType, type Schema } from "@google/generative-ai";
-import { catalogAsPromptText, TRANSVERSAL_CATEGORIES } from "./courseCatalog.js";
+import { catalogAsPromptText, promptSameTopicExamples, TRANSVERSAL_CATEGORIES } from "./courseCatalog.js";
 
 const NODE_SCHEMA: Schema = {
   type: SchemaType.OBJECT,
@@ -98,7 +116,7 @@ export const ROADMAP_RESPONSE_SCHEMA: Schema = {
     rama_principal: {
       ...BRANCH_SCHEMA,
       description:
-        "Lo que la persona necesita APRENDER para su objetivo — 10 a 14 cursos, en orden secuencial. Nunca incluye algo que ya domina (eso va en rama_repaso). Puede combinar más de una categoría real del catálogo si forman una narrativa coherente (ninguna categoría sola llega a este volumen).",
+        "Lo que la persona necesita APRENDER para su objetivo, en orden secuencial. Nunca incluye algo que ya domina (eso va en rama_repaso). Puede combinar más de una categoría real del catálogo si forman una narrativa coherente hacia el mismo objetivo. Sin cantidad fija — calibrá la extensión según qué tan lejos está su trasfondo del mundo tech y qué tan grande es el cambio que busca (ver instrucciones de calibración): puede ser un camino corto de 3-5 cursos para alguien sin base técnica que recién arranca, o uno más largo y específico para alguien que ya viene del área. Un recorrido corto pero bien elegido es un resultado completo, no una versión a medio hacer.",
       properties: {
         ...BRANCH_SCHEMA.properties,
         nombre: {
@@ -123,7 +141,7 @@ export const ROADMAP_RESPONSE_SCHEMA: Schema = {
     ramas_complementarias: {
       type: SchemaType.ARRAY,
       description:
-        "2 a 3 ramas de habilidades adicionales opcionales, cada una naciendo directamente del perfil de la persona (igual que rama_principal y rama_repaso) — nunca conectadas entre sí ni a mitad de otra rama. Suman 5 a 8 cursos en total entre todas.",
+        "0 a 3 ramas de habilidades adicionales, cada una naciendo directamente del perfil de la persona (igual que rama_principal y rama_repaso) — nunca conectadas entre sí ni a mitad de otra rama. Genuinamente opcionales: devolvé un array vacío si no hay una razón concreta y específica de la conversación que justifique alguna. Nunca se agregan como mínimo obligatorio ni para que el mapa se vea más completo — eso es relleno, no una recomendación real.",
       items: {
         ...BRANCH_SCHEMA,
         properties: {
@@ -146,15 +164,28 @@ export function buildRoadmapPrompt(transcript: string, riasecLabels: string[]): 
 Concepto: hay 3 tipos de rama, y las 3 nacen DIRECTAMENTE del perfil de la persona (nunca una rama sale de otra, ni de un curso a mitad de camino):
 1. "rama_principal" — lo que necesita APRENDER para su objetivo, secuencial.
 2. "rama_repaso" — cursos sobre cosas que YA sabe hacer (evidencia real de la conversación o el CV), ofrecidos como repaso/actualización opcional. Puede quedar vacía si no hay evidencia real.
-3. "ramas_complementarias" (2-3) — habilidades adicionales opcionales que la persona PUEDE elegir profundizar, nunca un paso obligatorio.
+3. "ramas_complementarias" (0-3) — habilidades adicionales que la persona PUEDE elegir profundizar, nunca un paso obligatorio ni un mínimo a completar.
+
+--- Antes de armar el recorrido: calibrá según el trasfondo de la persona ---
+Leé TODA la conversación (CV si lo hay, fase Experiencia, fase Habilidades, y el resultado del test RIASEC) y estimá dos cosas — ya tenés toda la información necesaria para esto, no hace falta preguntar nada nuevo:
+(a) qué tan cerca o lejos está su trasfondo del mundo tech (¿ya trabajó o estudió algo relacionado a programación/datos/diseño/producto, o viene de un área totalmente distinta?).
+(b) qué tan grande es el cambio que busca (¿quiere pivotar completamente a algo nuevo, o complementar/profundizar lo que ya hace?).
+
+Usá esa lectura para calibrar el recorrido:
+- Sin trasfondo tech + quiere pivotar de verdad: priorizá UNA sola área coherente con lo que mostró el test y la conversación — nunca una mezcla de disciplinas muy distintas entre sí (ej. diseño + desarrollo + IA + branding juntos es demasiado para alguien que arranca de cero). Camino corto y claro (rama_principal más chica), pensado para no abrumar. "ramas_complementarias" en este caso casi siempre debería quedar vacía — sumar más frentes es lo último que necesita alguien recién arrancando.
+- Sin trasfondo tech + solo quiere complementar o explorar (no pivotar): un único curso liviano alcanza. No corresponde una carrera ni una diplomatura para esta situación — es demasiado compromiso para una exploración.
+- Trasfondo técnico o con experiencia relevante ya en el área que busca: acá sí corresponde ser más específico y ambicioso — profundizar o especializar dentro de lo que la persona ya sabe (carrera/diplomatura si el nivel de compromiso lo amerita), en vez de mantenerlo en nivel introductorio.
+--- fin calibración ---
 
 Reglas, no negociables:
 - Cada "id" que devuelvas (en cualquier rama) tiene que ser EXACTAMENTE uno de los ids del catálogo de abajo, y NUNCA puede repetirse — cada curso aparece como máximo una vez en TODO el recorrido (nunca dos veces en la misma rama, nunca repetido entre rama_principal, rama_repaso y las complementarias). Nunca inventes un curso ni un id que no esté en esta lista.
+- UNA SOLA MODALIDAD POR TEMA: el catálogo tiene el mismo tema real ofrecido en distintas modalidades (curso / carrera / diplomatura / on-demand) — son la misma área a distinto nivel de compromiso, nunca cursos distintos para sumar juntos. Para cada tema, elegí exactamente UNA modalidad en TODO el recorrido (nunca aparece el mismo tema dos veces, aunque sea en ramas distintas). La modalidad que elijas depende del nivel de compromiso de la persona CON ESE TEMA PUNTUAL (ver calibración arriba) — alguien puede querer una carrera completa en su especialización principal y solo un curso suelto en algo complementario, eso es correcto. Ejemplos reales de mismo tema en distintas modalidades en este catálogo (elegí solo una por cada uno):
+${promptSameTopicExamples()}
 - "trigger" tiene 4 campos de texto, cada uno resumiendo un tema real de la conversación (no un resumen genérico único): "experiencia" (CV + fase Experiencia), "habilidades" (CV + fase Habilidades), "planDeCarrera" (por qué este orden en la rama principal), "estrategiaYEspecializacion" (análisis apoyado en el resultado del test RIASEC, mencionando las ramas complementarias si las hay). Cada uno tiene que citar algo concreto y real de la conversación — nunca relleno genérico.
-- "rama_principal.nombre" tiene que ser el nombre real de la especialización, nunca genérico. Sus 10 a 14 nodos son cursos coherentes con esa especialización, en orden secuencial, cubriendo SOLO cosas que la persona todavía no sabe — el nodo 1 tiene que seguir directamente del perfil de la persona, con una "justificacion" que cite algo concreto que dijo. Como ninguna categoría sola del catálogo llega a este volumen, la rama principal PUEDE combinar más de una categoría real (ej. Programación + Inteligencia Artificial + Data) siempre que formen una progresión lógica hacia el mismo objetivo — nunca mezclés categorías sin relación real entre sí solo para completar cantidad.
+- "rama_principal.nombre" tiene que ser el nombre real de la especialización, nunca genérico. Sus nodos son cursos coherentes con esa especialización, en orden secuencial, cubriendo SOLO cosas que la persona todavía no sabe — el nodo 1 tiene que seguir directamente del perfil de la persona, con una "justificacion" que cite algo concreto que dijo. Puede combinar más de una categoría real del catálogo si forman una progresión lógica hacia el mismo objetivo — nunca mezclés categorías sin relación real entre sí solo para completar cantidad.
 - "rama_repaso.nombre" siempre tiene que ser exactamente "¿Necesitás repasar algo?". Sus nodos (0 a 3) son cursos que cubren algo que la persona YA declaró saber hacer — cada "justificacion" tiene que citar la evidencia concreta (ej. "mencionaste que usás SQL en tu trabajo actual"). Si no hay ninguna evidencia real y específica que coincida con un curso del catálogo, dejá "nodos": [] — nunca inventes conocimiento previo que la persona no confirmó.
-- "ramas_complementarias": 2 a 3 ramas, cada una con cursos de las categorías ${TRANSVERSAL_CATEGORIES.join(", ")} — estos cursos NUNCA van en "rama_principal" ni en "rama_repaso". El "nombre" de cada rama describe su orientación real (categoría de sus cursos), nunca "Extra" ni "Otros". Cada rama puede tener más de un nodo si hay progresión natural dentro de esa orientación. La "justificacion" de cada nodo complementario tiene que explicar EXPLÍCITAMENTE por qué esa rama le sirve a esta persona en particular (ej. alguien muy técnico se beneficia de un curso de habilidades blandas para comunicarse con los equipos con los que va a trabajar) — nunca aparece sin esa explicación, se sentiría relleno random.
-- El total de cursos entre rama_principal y todas las ramas_complementarias tiene que ser entre 15 y 20 (rama_repaso no cuenta para este número, es aparte). Esto es un objetivo de producto explícito — preferimos un recorrido rico que muestre el catálogo real a uno corto, siempre que cada curso incluido tenga una razón real de estar (nunca relleno solo para sumar cantidad). Si el catálogo relevante para esta persona no da para llegar a 15 sin repetir cursos ni forzar categorías sin relación, priorizá la coherencia sobre el número exacto.
+- "ramas_complementarias": cada una con cursos de las categorías ${TRANSVERSAL_CATEGORIES.join(", ")} — estos cursos NUNCA van en "rama_principal" ni en "rama_repaso". El "nombre" de cada rama describe su orientación real (categoría de sus cursos), nunca "Extra" ni "Otros". La "justificacion" de cada nodo complementario tiene que explicar EXPLÍCITAMENTE por qué esa rama le sirve a esta persona en particular (ej. alguien muy técnico se beneficia de un curso de habilidades blandas para comunicarse con los equipos con los que va a trabajar) — si no podés escribir esa razón concreta, no la agregues, se sentiría relleno random.
+- Sin cantidad objetivo. Preferimos un recorrido de 3-5 cursos bien elegidos, con una razón real para cada uno, a uno de 15+ armado para "verse completo" — eso es exactamente lo que hay que evitar. La cantidad de nodos es una CONSECUENCIA de qué tan bien encaja cada curso con esta persona puntual (calibrada según trasfondo/pivote arriba), nunca un objetivo a alcanzar.
 - Ninguna "justificacion" puede ser una descripción genérica del curso que serviría para cualquier persona — siempre conectada a algo real de esta conversación y/o su resultado del test.
 
 --- Catálogo de cursos válidos ---
