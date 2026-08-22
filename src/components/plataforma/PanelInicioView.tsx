@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import type { Roadmap, RoadmapBranch, RoadmapNode } from "@/lib/ai/roadmapClient";
 import { temarioFor } from "@/lib/courseDetailContent";
 import { pendingTasksFor } from "@/lib/panelInicioContent";
+import { DEFAULT_COVER_GRADIENT } from "@/lib/profilePhotoStore";
 import type { PlataformaTab } from "./PlataformaLayout";
 import { categoryColor, categoryIcon, RoadmapCourseCard } from "./RoadmapCourseCard";
 import type { CourseStatus } from "@/lib/roadmapProgress";
@@ -370,8 +371,11 @@ function ScheduleSidebar({ activeNode }: { activeNode: RoadmapNode | null }) {
         </div>
       )}
 
-      <div className="rounded-2xl bg-ink px-5 py-6 text-center text-white">
-        <Sparkles className="mx-auto mb-2 h-5 w-5 text-brand-hover" />
+      {/* Same DEFAULT_COVER_GRADIENT used on the CV's cover photo and the
+          catalog card placeholders — one consistent brand gradient across
+          the app instead of a flat fill, per direct feedback. */}
+      <div className="rounded-2xl px-5 py-6 text-center text-white" style={{ background: DEFAULT_COVER_GRADIENT }}>
+        <Sparkles className="mx-auto mb-2 h-5 w-5" />
         <p className="mb-3 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-base">Pasate a Pro</p>
         <button
           type="button"
