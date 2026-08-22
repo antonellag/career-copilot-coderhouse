@@ -1,9 +1,13 @@
 import {
   Bell,
+  BookMarked,
   Calendar,
+  CheckCircle2,
   ChevronDown,
   ChevronRight,
+  CircleDot,
   ClipboardList,
+  GitBranch,
   LayoutDashboard,
   Lock,
   MessageSquareQuote,
@@ -13,7 +17,7 @@ import {
 import { useMemo, useState } from "react";
 import type { Roadmap, RoadmapBranch, RoadmapNode } from "@/lib/ai/roadmapClient";
 import { DEFAULT_COVER_GRADIENT } from "@/lib/profilePhotoStore";
-import { categoryIcon, RoadmapCourseCard } from "./RoadmapCourseCard";
+import { categoryColor, categoryIcon, RoadmapCourseCard } from "./RoadmapCourseCard";
 import type { PlataformaTab } from "./PlataformaLayout";
 import {
   metricsExample,
@@ -53,7 +57,11 @@ const ESTADO_OPTIONS: { label: string; value: "Todos" | CourseStatus }[] = [
  * unfiltered order). "Ver plan completo" jumps to the real Plan carrera
  * tab. rama_repaso is intentionally left out of this condensed view — it's
  * an optional refresher offer, not part of the growth path this dashboard
- * is meant to summarize at a glance.
+ * is meant to summarize at a glance. An overview row of real stat tiles
+ * (en progreso/completados/en tu recorrido/ramas activas) sits above it —
+ * plain counts over the same getStatus/roadmap.nodos data, added after
+ * reference dashboard screenshots (Overview stat tiles, "Other class")
+ * showed what this section was still missing.
  *
  * PARTE 2 — the active course's work panel (tareas, actividad, calendario,
  * notas del profe, "Unirme a la clase", notificaciones, métricas). There's
@@ -64,7 +72,12 @@ const ESTADO_OPTIONS: { label: string; value: "Todos" | CourseStatus }[] = [
  * derived from the active course's real categoria/nombre so it reads as
  * belonging to that course, never random or functional. "Unirme a la
  * clase" doesn't link to any real video service, same decorative-button
- * pattern as "Comprar" everywhere else in this app.
+ * pattern as "Comprar" everywhere else in this app. Two exceptions are
+ * real, not fabricated: "Próxima clase en vivo" uses the catalog's real
+ * scraped proximaFecha/horario when the active course has one (28 of 57
+ * do), and OtherActiveCourses below lists every OTHER course marked "en
+ * progreso" — a real gap the reference screenshots surfaced: only the
+ * first one was ever shown before, the rest silently disappeared.
  */
 export function PanelInicioView({
   roadmap,
@@ -75,10 +88,13 @@ export function PanelInicioView({
   getStatus: (id: string) => CourseStatus;
   onTabChange: (tab: PlataformaTab) => void;
 }) {
-  // First course marked "en progreso" anywhere in the roadmap — if more
-  // than one, real feedback said to just show the first (this panel is a
-  // snapshot, not a course switcher).
-  const activeNode = roadmap?.nodos.find((n) => getStatus(n.id) === "en-progreso") ?? null;
+  // First course marked "en progreso" anywhere in the roadmap — the one
+  // that gets the full Parte 2 work panel. Any OTHER "en progreso" course
+  // isn't just dropped anymore (real gap a reference screenshot's "Other
+  // class" section pointed at) — OtherActiveCourses below lists them.
+  const allNodes = roadmap?.nodos ?? [];
+  const activeNode = allNodes.find((n) => getStatus(n.id) === "en-progreso") ?? null;
+  const otherActiveNodes = allNodes.filter((n) => n.id !== activeNode?.id && getStatus(n.id) === "en-progreso");
 
   const [categoriaFilter, setCategoriaFilter] = useState("Todas");
   const [estadoFilter, setEstadoFilter] = useState<"Todos" | CourseStatus>("Todos");
@@ -94,6 +110,16 @@ export function PanelInicioView({
       <div className="mx-auto max-w-4xl">
         <h1 className="mb-1 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-2xl text-ink">Panel inicio</h1>
         <p className="mb-6 font-['Inter:Regular',sans-serif] text-sm text-ink-muted">Tu recorrido y tu curso activo, de un vistazo.</p>
+
+        {/* Overview real — mismos conteos que Plan carrera, nunca inventados. */}
+        {roadmap && (
+          <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <StatTile icon={CircleDot} label="En progreso" value={allNodes.filter((n) => getStatus(n.id) === "en-progreso").length} />
+            <StatTile icon={CheckCircle2} label="Completados" value={allNodes.filter((n) => getStatus(n.id) === "completado").length} />
+            <StatTile icon={BookMarked} label="En tu recorrido" value={allNodes.length} />
+            <StatTile icon={GitBranch} label="Ramas activas" value={branches.filter((b) => b.nodos.length > 0).length} />
+          </div>
+        )}
 
         {/* PARTE 1 */}
         <div className="mb-8 rounded-[20px] border border-border-soft bg-white p-6">
@@ -149,7 +175,12 @@ export function PanelInicioView({
 
         {/* PARTE 2 */}
         {activeNode ? (
-          <ActiveCoursePanel node={activeNode} onTabChange={onTabChange} />
+          <>
+            <ActiveCoursePanel node={activeNode} onTabChange={onTabChange} />
+            {otherActiveNodes.length > 0 && (
+              <OtherActiveCourses nodes={otherActiveNodes} onTabChange={onTabChange} />
+            )}
+          </>
         ) : (
           <div className="flex flex-col items-center gap-2 rounded-[20px] border border-dashed border-border-soft bg-white px-6 py-10 text-center">
             <span className="flex h-11 w-11 items-center justify-center rounded-full bg-ink/5 text-ink-muted">
@@ -168,6 +199,64 @@ export function PanelInicioView({
             </button>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// Real counts only — same getStatus/roadmap.nodos every other real number
+// in this app reads from, never a separate/invented metric.
+function StatTile({ icon: Icon, label, value }: { icon: typeof CircleDot; label: string; value: number }) {
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border border-border-soft bg-white px-4 py-3.5">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-hover/10 text-brand-hover">
+        <Icon className="h-4 w-4" />
+      </span>
+      <div>
+        <p className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-lg leading-tight text-ink">{value}</p>
+        <p className="font-['Inter:Regular',sans-serif] text-[11px] text-ink-muted">{label}</p>
+      </div>
+    </div>
+  );
+}
+
+// Real gap a reference screenshot pointed at: previously any "en progreso"
+// course besides the first was silently dropped. Compact real list, same
+// category-tinted cover treatment as RoadmapCourseCard's placeholder
+// (real photo when the catalog has one) — clicking any row goes to Plan
+// carrera, same as everywhere else in this panel that points back there.
+function OtherActiveCourses({ nodes, onTabChange }: { nodes: RoadmapNode[]; onTabChange: (tab: PlataformaTab) => void }) {
+  return (
+    <div className="mt-4 rounded-[20px] border border-border-soft bg-white p-5">
+      <p className="mb-3 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-sm text-ink">Otros cursos en progreso</p>
+      <div className="flex flex-col gap-2">
+        {nodes.map((n) => {
+          const catColor = categoryColor(n.curso.categoria);
+          const Icon = categoryIcon(n.curso.categoria);
+          return (
+            <button
+              key={n.id}
+              type="button"
+              onClick={() => onTabChange("plan-carrera")}
+              className="flex items-center gap-3 rounded-xl border border-border-soft px-3 py-2.5 text-left transition-colors hover:bg-cream-soft"
+            >
+              {n.curso.imagen ? (
+                <img src={n.curso.imagen} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
+              ) : (
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg" style={{ background: catColor.bg }}>
+                  <Icon className="h-4 w-4" style={{ color: catColor.text }} />
+                </span>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-['Inter:Regular',sans-serif] text-sm text-ink">{n.curso.nombre}</p>
+                <p className="font-['Inter:Regular',sans-serif] text-[11px] text-ink-muted">{n.curso.categoria}</p>
+              </div>
+              <span className="shrink-0 rounded-pill bg-brand-hover/10 px-2 py-0.5 font-['Inter:SemiBold',sans-serif] text-[10px] font-semibold text-brand-hover">
+                En progreso
+              </span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -297,9 +386,20 @@ function ActiveCoursePanel({ node, onTabChange }: { node: RoadmapNode; onTabChan
   const curso = node.curso;
   const tasks = pendingTasksFor(curso.categoria);
   const activity = recentActivityFor(curso.nombre);
-  const events = upcomingEventsFor();
   const notes = teacherNotesFor(curso.categoria);
   const metrics = metricsExample();
+
+  // Real "próxima clase" (from the catalog's scraped proximaFecha/horario,
+  // src/lib/catalogClient.ts) replaces the first example event when this
+  // course actually has one — 28 of 57 courses do, on-demand ones don't.
+  // The other 2 slots (entrega, examen final) stay example content, same
+  // as before: no real submissions/exam calendar exists to pull from.
+  const events = curso.proximaFecha
+    ? [
+        { titulo: "Próxima clase en vivo", cuando: curso.horario ? `${curso.proximaFecha} · ${curso.horario}` : curso.proximaFecha },
+        ...upcomingEventsFor().slice(1),
+      ]
+    : upcomingEventsFor();
 
   return (
     <div className="overflow-hidden rounded-[20px] border border-border-soft bg-white">
