@@ -1,7 +1,6 @@
 import { ChevronDown, ChevronLeft, ChevronRight, LayoutDashboard, Lock, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { Roadmap, RoadmapBranch, RoadmapNode } from "@/lib/ai/roadmapClient";
-import { temarioFor } from "@/lib/courseDetailContent";
 import { pendingTasksFor } from "@/lib/panelInicioContent";
 import { DEFAULT_COVER_GRADIENT } from "@/lib/profilePhotoStore";
 import type { PlataformaTab } from "./PlataformaLayout";
@@ -44,12 +43,17 @@ const ESTADO_OPTIONS: { label: string; value: "Todos" | CourseStatus }[] = [
  * - "Tareas pendientes": per-class task rows for whichever course(s) are
  *   "en progreso" — task text and "Clase N" numbering are example
  *   content (pendingTasksFor), never a real assignment system.
- * - The right sidebar's calendar shows the REAL current month and
- *   correctly highlights today (both real, from `new Date()`) — the
- *   agenda blocks under it are example content (temarioFor, keyed to the
- *   active course's real categoria for at least topical plausibility),
- *   and "Go premium" is decorative, same as the header's own
- *   "Upgrade a Pro" (no real paid tier exists).
+ *
+ * The right sidebar is a real study schedule, not example content: the
+ * calendar marks every REAL class day this month (parsed from the active
+ * course's real horario, e.g. "Mié — 20:30 hs a 22:30 hs") and today is
+ * genuinely today (both from `new Date()`); the list below shows the next
+ * real class dates + real start/end times, with a decorative "Entrar a la
+ * clase" (no real video service, same pattern as every classroom-access
+ * button elsewhere). On-demand courses (no horario) get an honest "sin
+ * clases en vivo" note instead of a fabricated schedule. "Pasate a Pro" is
+ * decorative, same as the header's own "Upgrade a Pro" (no real paid tier
+ * exists).
  *
  * Dropped per direct feedback right after this rebuild shipped: the old
  * "Curso activo" panel (notificación/métricas de ejemplo/actividad
@@ -345,31 +349,95 @@ function TareasPendientes({ nodes }: { nodes: RoadmapNode[] }) {
   );
 }
 
-// Right sidebar — real calendar (today is genuinely today), example
-// agenda blocks below (temarioFor, keyed to the active course's real
-// categoria), decorative "Go premium" card (no real paid tier, same as
-// the header's own "Upgrade a Pro").
+// Weekday abbreviations, Monday-first — matches both the real horario
+// strings' own day abbreviations (e.g. "Mié — 20:30 hs a 22:30 hs", see
+// data/course-catalog.json) and this calendar's Monday-first week, so the
+// two line up without a translation table.
+const WEEKDAY_LABELS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+const DAY_ABBR_TO_INDEX: Record<string, number> = { Lun: 0, Mar: 1, Mié: 2, Jue: 3, Vie: 4, Sáb: 5, Dom: 6 };
+
+type ParsedHorario = { days: number[]; startTime: string; endTime: string };
+
+// "Mié — 20:30 hs a 22:30 hs" -> { days: [2], startTime: "20:30", endTime:
+// "22:30" }; "Jue y Mar — 19:00 hs a 21:00 hs" -> days: [3, 1]. Real data
+// only — returns null (not a guess) if a horario string doesn't match the
+// catalog's own real format.
+function parseHorario(horario: string): ParsedHorario | null {
+  const match = horario.match(/^(.+?)\s*—\s*(\d{1,2}:\d{2})\s*hs\s*a\s*(\d{1,2}:\d{2})\s*hs$/);
+  if (!match) return null;
+  const days = match[1]
+    .split(/\s+y\s+/)
+    .map((d) => DAY_ABBR_TO_INDEX[d.trim()])
+    .filter((d): d is number => d !== undefined);
+  if (days.length === 0) return null;
+  return { days, startTime: match[2], endTime: match[3] };
+}
+
+// Real upcoming dates (today onward) matching the course's real class
+// weekdays — walks forward day by day rather than assuming they all fall
+// within the current month, so it still returns real dates even right at
+// a month's end.
+function nextClassDates(days: number[], count: number): Date[] {
+  const results: Date[] = [];
+  const cursor = new Date();
+  cursor.setHours(0, 0, 0, 0);
+  for (let i = 0; results.length < count && i < 60; i++) {
+    const weekday = (cursor.getDay() + 6) % 7; // JS getDay() is Sunday-first — shift to Monday-first.
+    if (days.includes(weekday)) results.push(new Date(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return results;
+}
+
+function formatClassDate(date: Date): string {
+  const label = date.toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" });
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+// Right sidebar — a real study schedule for the active course: the
+// calendar marks every real class day this month (derived from the
+// catalog's real horario, never invented), and the list below shows the
+// next real class dates with real start/end times. "Entrar a la clase" is
+// decorative (no real video service), same pattern as every other
+// classroom-access button in this app. On-demand courses (no horario)
+// get an honest "no tiene clases en vivo" note instead of a fake
+// schedule. "Pasate a Pro" is decorative too, same as the header's own
+// "Upgrade a Pro" — no real paid tier exists.
 function ScheduleSidebar({ activeNode }: { activeNode: RoadmapNode | null }) {
-  const agenda = activeNode ? temarioFor(activeNode.curso.categoria).slice(0, 3) : [];
-  const AGENDA_COLORS = ["bg-sky-50 text-sky-800", "bg-sky-50 text-sky-800", "bg-amber-50 text-amber-800"];
-  const AGENDA_TIMES = ["9:00 - 10:30 AM", "11:00 AM - 12:30 PM", "1:30 - 2:30 PM"];
+  const parsed = activeNode?.curso.horario ? parseHorario(activeNode.curso.horario) : null;
+  const classDates = parsed ? nextClassDates(parsed.days, 5) : [];
 
   return (
     <div className="flex flex-col gap-5">
       <h2 className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-xl text-ink">Schedule</h2>
 
-      <MiniCalendar />
+      <MiniCalendar classWeekdays={parsed?.days ?? []} />
 
-      {agenda.length > 0 && (
-        <div className="flex flex-col gap-2.5">
-          {agenda.map((titulo, i) => (
-            <div key={i} className={`rounded-xl px-4 py-3 ${AGENDA_COLORS[i % AGENDA_COLORS.length]}`}>
-              <p className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-sm">{titulo}</p>
-              <p className="font-['Inter:Regular',sans-serif] text-xs opacity-70">{AGENDA_TIMES[i % AGENDA_TIMES.length]}</p>
-            </div>
-          ))}
-        </div>
-      )}
+      {activeNode &&
+        (parsed ? (
+          <div className="flex flex-col gap-2.5">
+            {classDates.map((date, i) => (
+              <div key={i} className="flex items-center justify-between gap-3 rounded-xl bg-sky-50 px-4 py-3">
+                <div>
+                  <p className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-sm text-sky-900">{formatClassDate(date)}</p>
+                  <p className="font-['Inter:Regular',sans-serif] text-xs text-sky-800/70">
+                    {parsed.startTime} hs a {parsed.endTime} hs
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="shrink-0 rounded-pill bg-white px-3 py-1.5 font-['Inter:SemiBold',sans-serif] text-xs font-semibold text-sky-900 transition-colors hover:bg-sky-100"
+                >
+                  Entrar a la clase
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="font-['Inter:Regular',sans-serif] text-xs text-ink-muted">
+            {activeNode.curso.nombre} es a tu ritmo — no tiene clases en vivo programadas.
+          </p>
+        ))}
 
       {/* Same DEFAULT_COVER_GRADIENT used on the CV's cover photo and the
           catalog card placeholders — one consistent brand gradient across
@@ -388,16 +456,15 @@ function ScheduleSidebar({ activeNode }: { activeNode: RoadmapNode | null }) {
   );
 }
 
-const WEEKDAY_LABELS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const MONTH_LABELS = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ];
 
-// A real month calendar for the actual current month/year, today
-// genuinely highlighted (both from `new Date()`) — no navigation, just a
-// glanceable "where are we" like the sketch's calendar widget.
-function MiniCalendar() {
+// A real month calendar for the actual current month/year — today is
+// genuinely today, and `classWeekdays` (real, from the active course's
+// horario) marks every real class day this month, not just today.
+function MiniCalendar({ classWeekdays }: { classWeekdays: number[] }) {
   const today = new Date();
   const year = today.getFullYear();
   const month = today.getMonth();
@@ -423,16 +490,27 @@ function MiniCalendar() {
             {d}
           </span>
         ))}
-        {cells.map((day, i) => (
-          <span
-            key={i}
-            className={`flex h-7 w-7 items-center justify-center rounded-full font-['Inter:Regular',sans-serif] text-xs ${
-              day === today.getDate() ? "bg-ink text-white" : day ? "text-ink" : ""
-            }`}
-          >
-            {day ?? ""}
-          </span>
-        ))}
+        {cells.map((day, i) => {
+          const isToday = day === today.getDate();
+          // The grid is 7 columns wide starting Monday, so a cell's flat
+          // index mod 7 IS its Monday-first weekday — no separate lookup
+          // needed, and it's correct for every day in the month, not just
+          // today's.
+          const isClassDay = day !== null && classWeekdays.includes(i % 7);
+          return (
+            <span
+              key={i}
+              className={`relative flex h-7 w-7 items-center justify-center rounded-full font-['Inter:Regular',sans-serif] text-xs ${
+                isToday ? "bg-ink text-white" : day ? "text-ink" : ""
+              }`}
+            >
+              {day ?? ""}
+              {isClassDay && !isToday && (
+                <span className="absolute bottom-0.5 h-1 w-1 rounded-full bg-brand-hover" />
+              )}
+            </span>
+          );
+        })}
       </div>
     </div>
   );
