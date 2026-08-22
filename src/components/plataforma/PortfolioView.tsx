@@ -1,4 +1,4 @@
-import { ExternalLink, GraduationCap, ImagePlus, Link2, Pencil, Plus, Sparkles, Trash2, X } from "lucide-react";
+import { Code2, ExternalLink, GraduationCap, ImagePlus, Link2, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useRef, useState } from "react";
 import type { Roadmap } from "@/lib/ai/roadmapClient";
 import type { CourseStatus } from "@/lib/roadmapProgress";
@@ -13,13 +13,15 @@ import type { CourseStatus } from "@/lib/roadmapProgress";
  * auto-generated or simulated content anymore (an earlier version added a
  * generic placeholder card per completed course automatically, and had a
  * fake "Importar desde Behance" button that filled the grid with 3
- * made-up example projects; both are gone). "Crear un proyecto" offers 3
+ * made-up example projects; both are gone). "Crear un proyecto" offers 4
  * real sources instead:
  * - Imagen propia: upload a picture of your own work.
  * - Trabajo final de un curso: pick one of your completed courses (real,
  *   from roadmapProgress.ts — the same state the CV's "Certificaciones
  *   Coderhouse" reads) and upload a picture of what you actually built.
  * - Link de Behance: paste your own real Behance project URL.
+ * - Link de GitHub: paste your own real GitHub repo URL — same
+ *   link-only shape as Behance (isLinkOnlySource), no image required.
  *
  * Grid cards show only their cover (image, or a source-tinted placeholder
  * when there isn't one) until hovered — hovering reveals title,
@@ -32,7 +34,7 @@ import type { CourseStatus } from "@/lib/roadmapProgress";
  * session-only state.
  */
 
-export type PortfolioProjectSource = "propio" | "curso" | "behance";
+export type PortfolioProjectSource = "propio" | "curso" | "behance" | "github";
 
 export type PortfolioProject = {
   id: string;
@@ -171,7 +173,14 @@ const SOURCE_LABEL: Record<PortfolioProjectSource, string> = {
   propio: "Proyecto propio",
   curso: "Trabajo final de curso",
   behance: "Behance",
+  github: "GitHub",
 };
+
+// "behance"/"github" are both a pasted external link with no image
+// required — everything else (propio/curso) needs an uploaded picture.
+function isLinkOnlySource(origen: PortfolioProjectSource): boolean {
+  return origen === "behance" || origen === "github";
+}
 
 // Behance-style masonry card: cover only until hovered, title/description/
 // controls appear as an overlay on hover — never both at once, matching
@@ -185,7 +194,8 @@ function ProjectCard({
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const Icon = project.origen === "curso" ? GraduationCap : project.origen === "behance" ? Link2 : ImagePlus;
+  const Icon =
+    project.origen === "curso" ? GraduationCap : project.origen === "github" ? Code2 : project.origen === "behance" ? Link2 : ImagePlus;
   return (
     <div className="group relative mb-4 break-inside-avoid overflow-hidden rounded-2xl border border-border-soft bg-white shadow-[0_2px_10px_rgba(0,0,0,0.05)]">
       {project.imageDataUrl ? (
@@ -301,6 +311,12 @@ function CreateProjectModal({
               subtitle="Sumá un proyecto que ya tengas publicado."
               onClick={() => setOrigen("behance")}
             />
+            <SourceOption
+              icon={Code2}
+              title="Link de GitHub"
+              subtitle="Sumá un repositorio real que ya tengas."
+              onClick={() => setOrigen("github")}
+            />
           </div>
         ) : (
           <ProjectForm
@@ -377,7 +393,7 @@ function ProjectForm({
     reader.readAsDataURL(file);
   };
 
-  const canSave = titulo.trim().length > 0 && (origen !== "behance" || link.trim().length > 0);
+  const canSave = titulo.trim().length > 0 && (!isLinkOnlySource(origen) || link.trim().length > 0);
 
   const handleSubmit = () => {
     onSave({
@@ -410,7 +426,7 @@ function ProjectForm({
         </select>
       )}
 
-      {origen !== "behance" && (
+      {!isLinkOnlySource(origen) && (
         <>
           <button
             type="button"
@@ -430,11 +446,11 @@ function ProjectForm({
         </>
       )}
 
-      {origen === "behance" && (
+      {isLinkOnlySource(origen) && (
         <input
           value={link}
           onChange={(e) => setLink(e.target.value)}
-          placeholder="Link de tu proyecto en Behance"
+          placeholder={origen === "github" ? "Link de tu repositorio en GitHub" : "Link de tu proyecto en Behance"}
           className="mb-3 w-full rounded-lg border border-border-soft bg-cream-soft px-4 py-2.5 font-['Inter:Regular',sans-serif] text-sm text-ink outline-none placeholder:text-ink-muted"
         />
       )}
@@ -452,7 +468,7 @@ function ProjectForm({
         rows={3}
         className="mb-3 w-full resize-none rounded-lg border border-border-soft bg-cream-soft px-4 py-2.5 font-['Inter:Regular',sans-serif] text-sm text-ink outline-none placeholder:text-ink-muted"
       />
-      {origen !== "behance" && (
+      {!isLinkOnlySource(origen) && (
         <input
           value={link}
           onChange={(e) => setLink(e.target.value)}
