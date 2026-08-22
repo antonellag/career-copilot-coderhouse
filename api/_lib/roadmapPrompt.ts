@@ -55,6 +55,23 @@
  *   building the roadmap, and calibrates both length and modality
  *   accordingly (see the prompt body's "Antes de armar el recorrido"
  *   section).
+ *
+ * A 4th fix, separate round: another real tester who works as a bricklayer
+ * described "armando y diseñando cosas" (building things by hand) and the
+ * model pointed the roadmap at Diseño UX/UI — it matched the word
+ * "diseñando" against the vocabulary of a professional area instead of
+ * reasoning about the actual activity (manual construction is a Realista
+ * signal, not Artístico). The prompt's "El test RIASEC es la señal
+ * principal" section below fixes this at the source: the RIASEC test
+ * result (an objective forced-choice test) is now the primary signal for
+ * vocational direction, free-text conversation only personalizes/justifies
+ * it — it can no longer shift which dimension/area gets picked just
+ * because a word in what the person said happens to overlap with a
+ * profession's name. Note this lives here, not api/_lib/prompts.ts: that
+ * file only drives the /limbo chat turns (Experiencia/Habilidades/
+ * Resultado's closing line) — none of them reason about RIASEC dimensions
+ * or pick a specialization, this file's buildRoadmapPrompt is the only
+ * place that does.
  */
 import { SchemaType, type Schema } from "@google/generative-ai";
 import { catalogAsPromptText, promptSameTopicExamples, TRANSVERSAL_CATEGORIES } from "./courseCatalog.js";
@@ -108,7 +125,7 @@ export const ROADMAP_RESPONSE_SCHEMA: Schema = {
         estrategiaYEspecializacion: {
           type: SchemaType.STRING,
           description:
-            "2-3 oraciones con el análisis y la estrategia de especialización: apoyate en el resultado del test vocacional (RIASEC) y en lo que la persona contó. Si hay ramas complementarias, referite a ellas explícitamente (ej. 'además del camino principal en X, te conviene profundizar en Y porque...') — por qué esta estrategia tiene sentido para ELLA, no una estrategia genérica.",
+            "2-3 oraciones con el análisis y la estrategia de especialización: la orientación vocacional sale del resultado del test RIASEC (la señal principal), personalizada con cosas concretas que la persona contó — nunca al revés, nunca reinterpretando el test a partir de una palabra suelta de la conversación (ver la sección 'El test RIASEC es la señal principal' más abajo). Si hay ramas complementarias, referite a ellas explícitamente (ej. 'además del camino principal en X, te conviene profundizar en Y porque...') — por qué esta estrategia tiene sentido para ELLA, no una estrategia genérica.",
         },
       },
       required: ["experiencia", "habilidades", "planDeCarrera", "estrategiaYEspecializacion"],
@@ -165,6 +182,15 @@ Concepto: hay 3 tipos de rama, y las 3 nacen DIRECTAMENTE del perfil de la perso
 1. "rama_principal" — lo que necesita APRENDER para su objetivo, secuencial.
 2. "rama_repaso" — cursos sobre cosas que YA sabe hacer (evidencia real de la conversación o el CV), ofrecidos como repaso/actualización opcional. Puede quedar vacía si no hay evidencia real.
 3. "ramas_complementarias" (0-3) — habilidades adicionales que la persona PUEDE elegir profundizar, nunca un paso obligatorio ni un mínimo a completar.
+
+--- El test RIASEC (Fase 3) es la señal PRINCIPAL de orientación vocacional ---
+Las dimensiones dominantes que te paso abajo (sección "Resultado test vocacional") vienen de un test de elección forzada — es la señal objetiva y principal de hacia qué área vocacional apunta esta persona. La conversación libre (Experiencia + Habilidades) se usa para PERSONALIZAR y JUSTIFICAR el recorrido con cosas concretas que la persona dijo (como ya hacés en cada "justificacion") — pero NUNCA para reinterpretar la orientación vocacional ni correr el peso hacia una dimensión distinta a partir de que una palabra suelta de la conversación coincida textualmente con el nombre de un rubro.
+
+Regla explícita: fijate en qué actividad describe realmente la persona, nunca en si una palabra de la frase coincide con el vocabulario de un área profesional.
+- Ejemplo concreto: "armar o reparar algo con las manos" (construcción, albañilería, herrería, o cualquier oficio manual) es señal de Realista (y a veces Convencional, si implica medidas/precisión/seguir un proceso técnico) — NO es señal de Artístico ni de Diseño, aunque la persona haya usado la palabra "crear" o "diseñar" para describirlo.
+- Artístico solo se refuerza con señales EXPLÍCITAS de sensibilidad estética o expresiva: que la persona mencione que le importa cómo se ve algo, que dibuja, que le gusta la composición visual, el color, contar historias de forma creativa, etc. — nunca a partir del verbo "crear" o "diseñar" usado en sentido de oficio o de tarea genérica.
+- Este es un caso particular de un problema más general, no repitas el mismo error con otras palabras: nunca infieras una dimensión vocacional o un área profesional solo porque una palabra de la conversación coincide textualmente con el vocabulario de esa área. Más ejemplos del mismo tipo de error a evitar — "programar mi semana" no es señal de programación; "construir una relación de confianza con un cliente" no es señal de construcción; "estrategia" usado en cualquier contexto no es señal de negocios. Siempre razoná sobre la actividad real que describe la persona, nunca sobre la palabra que usó.
+--- fin señal principal ---
 
 --- Antes de armar el recorrido: calibrá según el trasfondo de la persona ---
 Leé TODA la conversación (CV si lo hay, fase Experiencia, fase Habilidades, y el resultado del test RIASEC) y estimá dos cosas — ya tenés toda la información necesaria para esto, no hace falta preguntar nada nuevo:
