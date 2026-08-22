@@ -1,7 +1,7 @@
 import {
   Bell,
   Calendar,
-  Check,
+  ChevronDown,
   ChevronRight,
   ClipboardList,
   LayoutDashboard,
@@ -10,8 +10,10 @@ import {
   Radio,
   Sparkles,
 } from "lucide-react";
-import { Fragment } from "react";
+import { useMemo, useState } from "react";
 import type { Roadmap, RoadmapBranch, RoadmapNode } from "@/lib/ai/roadmapClient";
+import { DEFAULT_COVER_GRADIENT } from "@/lib/profilePhotoStore";
+import { categoryIcon, RoadmapCourseCard } from "./RoadmapCourseCard";
 import type { PlataformaTab } from "./PlataformaLayout";
 import {
   metricsExample,
@@ -23,6 +25,13 @@ import {
 } from "@/lib/panelInicioContent";
 import type { CourseStatus } from "@/lib/roadmapProgress";
 
+const ESTADO_OPTIONS: { label: string; value: "Todos" | CourseStatus }[] = [
+  { label: "Estado", value: "Todos" },
+  { label: "No iniciado", value: "no-iniciado" },
+  { label: "En progreso", value: "en-progreso" },
+  { label: "Completado", value: "completado" },
+];
+
 /**
  * "Panel inicio" — the first screen after logging in. Two parts of a
  * genuinely different nature, kept visually and structurally separate on
@@ -32,12 +41,19 @@ import type { CourseStatus } from "@/lib/roadmapProgress";
  * map: ramaPrincipal + ramasComplementarias, reading the exact same
  * `getStatus` state the full map writes to (src/lib/roadmapProgress.ts) —
  * no separate progress tracking exists here, this is the same state
- * rendered smaller. A node's "locked" look is purely a visual read of that
- * real state (no-iniciado AND the previous node in its branch isn't
- * completado yet) — not a second stored flag. "Ver plan completo" jumps to
- * the real Plan carrera tab. rama_repaso is intentionally left out of this
- * condensed view — it's an optional refresher offer, not part of the
- * growth path this dashboard is meant to summarize at a glance.
+ * rendered smaller. Real feedback: an earlier version showed this as plain
+ * small circles ("muy básico") — each branch row is now a real progress
+ * card (real % completado for that branch) followed by real course cards
+ * (RoadmapCourseCard — the same card component the Plan carrera map and
+ * Catálogo use, not a simplified stand-in), plus real categoría/estado
+ * filters over the actual node data. A node's "locked" overlay is still
+ * purely a visual read of that real state (no-iniciado AND the previous
+ * node in its branch isn't completado yet) — not a second stored flag, and
+ * unaffected by the filters (locking always reads the branch's real,
+ * unfiltered order). "Ver plan completo" jumps to the real Plan carrera
+ * tab. rama_repaso is intentionally left out of this condensed view — it's
+ * an optional refresher offer, not part of the growth path this dashboard
+ * is meant to summarize at a glance.
  *
  * PARTE 2 — the active course's work panel (tareas, actividad, calendario,
  * notas del profe, "Unirme a la clase", notificaciones, métricas). There's
@@ -64,6 +80,15 @@ export function PanelInicioView({
   // snapshot, not a course switcher).
   const activeNode = roadmap?.nodos.find((n) => getStatus(n.id) === "en-progreso") ?? null;
 
+  const [categoriaFilter, setCategoriaFilter] = useState("Todas");
+  const [estadoFilter, setEstadoFilter] = useState<"Todos" | CourseStatus>("Todos");
+
+  const branches: RoadmapBranch[] = roadmap ? [roadmap.ramaPrincipal, ...roadmap.ramasComplementarias] : [];
+  const categoriaOptions = useMemo(
+    () => ["Todas", ...new Set(branches.flatMap((b) => b.nodos.map((n) => n.curso.categoria)))],
+    [branches],
+  );
+
   return (
     <div className="flex-1 overflow-y-auto px-6 py-8 sm:px-8">
       <div className="mx-auto max-w-4xl">
@@ -72,7 +97,7 @@ export function PanelInicioView({
 
         {/* PARTE 1 */}
         <div className="mb-8 rounded-[20px] border border-border-soft bg-white p-6">
-          <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h2 className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-base text-ink">Tu camino de carrera</h2>
             <button
               type="button"
@@ -86,9 +111,23 @@ export function PanelInicioView({
 
           {roadmap ? (
             <div>
-              <BranchPath branch={roadmap.ramaPrincipal} getStatus={getStatus} primary />
-              {roadmap.ramasComplementarias.map((rama) => (
-                <BranchPath key={rama.nombre} branch={rama} getStatus={getStatus} />
+              {/* Real filters — categoría/estado over the real node data,
+                  same appearance-none + ChevronDown fix as CatalogoView's
+                  own filter selects. */}
+              <div className="mb-5 flex flex-wrap gap-2.5">
+                <FilterSelect value={categoriaFilter} onChange={setCategoriaFilter} options={categoriaOptions.map((c) => ({ label: c === "Todas" ? "Categoría" : c, value: c }))} />
+                <FilterSelect value={estadoFilter} onChange={(v) => setEstadoFilter(v as "Todos" | CourseStatus)} options={ESTADO_OPTIONS} />
+              </div>
+
+              {branches.map((branch, i) => (
+                <BranchRow
+                  key={branch.nombre}
+                  branch={branch}
+                  getStatus={getStatus}
+                  categoriaFilter={categoriaFilter}
+                  estadoFilter={estadoFilter}
+                  primary={i === 0}
+                />
               ))}
             </div>
           ) : (
@@ -134,24 +173,110 @@ export function PanelInicioView({
   );
 }
 
-// One horizontally-scrolling branch row — bigger circles for ramaPrincipal
-// (`primary`), smaller for each rama complementaria.
-function BranchPath({ branch, getStatus, primary }: { branch: RoadmapBranch; getStatus: (id: string) => CourseStatus; primary?: boolean }) {
-  if (branch.nodos.length === 0) return null;
+// Decorative filter pill — appearance-none select + positioned ChevronDown,
+// same fix already applied to CatalogoView's own filter selects (native
+// chevrons used to sit flush against the pill's rounded border).
+function FilterSelect({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: { label: string; value: string }[];
+}) {
   return (
-    <div className="mb-4 last:mb-0">
-      <p className="mb-2 font-['Inter:Regular',sans-serif] text-xs text-ink-muted">{branch.nombre}</p>
-      <div className="flex items-center overflow-x-auto pb-1">
-        {branch.nodos.map((node, i) => (
-          <Fragment key={node.id}>
-            {i > 0 && (
-              <div
-                className={`h-0.5 w-6 shrink-0 sm:w-10 ${getStatus(branch.nodos[i - 1].id) === "completado" ? "bg-green-500" : "bg-ink/10"}`}
-              />
-            )}
-            <CondensedNode node={node} locked={isLocked(branch.nodos, i, getStatus)} status={getStatus(node.id)} size={primary ? 52 : 38} />
-          </Fragment>
+    <div className="relative">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="appearance-none rounded-pill border border-border-soft bg-white py-2.5 pl-4 pr-9 font-['Inter:Regular',sans-serif] text-sm text-ink outline-none"
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
         ))}
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-muted" />
+    </div>
+  );
+}
+
+// One horizontally-scrolling branch row: a leading progress card (real %
+// completado for THIS branch) followed by real course cards
+// (RoadmapCourseCard — same card the Plan carrera map and Catálogo use,
+// not a simplified stand-in). Locking is a pure visual read of the real
+// per-node status against the branch's real (unfiltered) order — filtering
+// only hides/shows cards, it never changes what counts as "previous".
+function BranchRow({
+  branch,
+  getStatus,
+  categoriaFilter,
+  estadoFilter,
+  primary,
+}: {
+  branch: RoadmapBranch;
+  getStatus: (id: string) => CourseStatus;
+  categoriaFilter: string;
+  estadoFilter: "Todos" | CourseStatus;
+  primary?: boolean;
+}) {
+  const visible = branch.nodos.filter(
+    (n) =>
+      (categoriaFilter === "Todas" || n.curso.categoria === categoriaFilter) &&
+      (estadoFilter === "Todos" || getStatus(n.id) === estadoFilter),
+  );
+  if (visible.length === 0) return null;
+
+  return (
+    <div className="mb-6 last:mb-0">
+      <p className="mb-2.5 font-['Inter:Regular',sans-serif] text-xs text-ink-muted">{branch.nombre}</p>
+      <div className="flex items-stretch gap-3 overflow-x-auto pb-2">
+        <BranchProgressCard branch={branch} getStatus={getStatus} />
+        {visible.map((node) => {
+          const index = branch.nodos.findIndex((n) => n.id === node.id);
+          const locked = isLocked(branch.nodos, index, getStatus);
+          return (
+            <div key={node.id} className="relative shrink-0">
+              <RoadmapCourseCard node={node} status={getStatus(node.id)} />
+              {locked && (
+                <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-white/75">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-ink/10 text-ink-muted">
+                    <Lock className="h-4 w-4" />
+                  </span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Real % completado for this branch — same DEFAULT_COVER_GRADIENT used on
+// the CV's cover photo, for one consistent brand look across the app.
+function BranchProgressCard({ branch, getStatus }: { branch: RoadmapBranch; getStatus: (id: string) => CourseStatus }) {
+  const total = branch.nodos.length;
+  const done = branch.nodos.filter((n) => getStatus(n.id) === "completado").length;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const Icon = categoryIcon(branch.nodos[0]?.curso.categoria ?? "");
+
+  return (
+    <div
+      className="flex w-[170px] shrink-0 flex-col justify-between rounded-2xl p-4 text-white"
+      style={{ background: DEFAULT_COVER_GRADIENT }}
+    >
+      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15">
+        <Icon className="h-4 w-4" />
+      </span>
+      <div>
+        <p className="mb-1 line-clamp-2 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-sm leading-tight">{branch.nombre}</p>
+        <p className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-3xl font-extrabold leading-none">{pct}%</p>
+        <p className="mt-0.5 font-['Inter:Regular',sans-serif] text-[11px] text-white/70">
+          {done}/{total} completado
+        </p>
       </div>
     </div>
   );
@@ -160,41 +285,10 @@ function BranchPath({ branch, getStatus, primary }: { branch: RoadmapBranch; get
 // Purely a visual read of the real per-node status — see PanelInicioView's
 // own doc comment. Not a stored flag.
 function isLocked(branchNodes: RoadmapNode[], index: number, getStatus: (id: string) => CourseStatus): boolean {
-  if (index === 0) return false;
+  if (index <= 0) return false;
   const status = getStatus(branchNodes[index].id);
   if (status !== "no-iniciado") return false;
   return getStatus(branchNodes[index - 1].id) !== "completado";
-}
-
-function CondensedNode({ node, status, locked, size }: { node: RoadmapNode; status: CourseStatus; locked: boolean; size: number }) {
-  const circleClasses = locked
-    ? "bg-ink/5 text-ink-muted/60"
-    : status === "completado"
-      ? "bg-green-500 text-white"
-      : status === "en-progreso"
-        ? "bg-brand-hover text-white ring-4 ring-brand-hover/20"
-        : "border-2 border-brand-hover/50 bg-white text-brand-hover";
-
-  return (
-    <div className="flex shrink-0 flex-col items-center gap-1.5 px-1" style={{ width: size + 28 }}>
-      <div
-        className={`flex shrink-0 items-center justify-center rounded-full transition-colors ${circleClasses}`}
-        style={{ width: size, height: size }}
-        title={node.curso.nombre}
-      >
-        {locked ? (
-          <Lock className="h-3.5 w-3.5" />
-        ) : status === "completado" ? (
-          <Check className="h-4 w-4" />
-        ) : (
-          <span className="h-2 w-2 rounded-full bg-current" />
-        )}
-      </div>
-      <p className="line-clamp-2 text-center font-['Inter:Regular',sans-serif] text-[10px] leading-tight text-ink-muted">
-        {node.curso.nombre}
-      </p>
-    </div>
-  );
 }
 
 // PARTE 2 — see PanelInicioView's own doc comment for why every field
