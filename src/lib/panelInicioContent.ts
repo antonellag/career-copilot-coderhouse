@@ -1,8 +1,10 @@
 /**
- * Decorative "active course" activity content for Panel inicio's Parte 2
+ * Decorative "active course" activity content for Panel inicio
  * (src/components/plataforma/PanelInicioView.tsx) — pending tasks, recent
- * activity feed, upcoming events, teacher notes, and attendance/delivery
- * metrics.
+ * activity feed, teacher notes, and attendance/delivery metrics. The
+ * sidebar's own agenda blocks are sourced from courseDetailContent.ts's
+ * temarioFor instead (keyed to categoria, already existed for the Plan
+ * carrera detail panel).
  *
  * EXPLICITLY NOT REAL DATA, same treatment as src/lib/courseDetailContent.ts
  * (read that file's own doc comment for the full reasoning): there's no
@@ -37,16 +39,6 @@ export function recentActivityFor(nombreCurso: string): ActivityItem[] {
     { texto: `El profe subió el material de la clase 3 de ${nombreCurso}`, hace: "hace 1 día" },
     { texto: "Un compañero respondió tu pregunta en el foro", hace: "hace 2 días" },
     { texto: "Se agregó una guía extra en la sección de recursos", hace: "hace 4 días" },
-  ];
-}
-
-export type UpcomingEvent = { titulo: string; cuando: string };
-
-export function upcomingEventsFor(): UpcomingEvent[] {
-  return [
-    { titulo: "Próxima clase en vivo", cuando: "Miércoles 20:30 hs" },
-    { titulo: "Entrega del práctico grupal", cuando: "Viernes" },
-    { titulo: "Examen final", cuando: "En 2 semanas" },
   ];
 }
 
