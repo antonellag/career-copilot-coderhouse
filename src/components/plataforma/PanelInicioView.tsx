@@ -1,24 +1,8 @@
-import {
-  Bell,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  LayoutDashboard,
-  Lock,
-  MessageSquareQuote,
-  Radio,
-  Sparkles,
-} from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, LayoutDashboard, Lock, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { Roadmap, RoadmapBranch, RoadmapNode } from "@/lib/ai/roadmapClient";
 import { temarioFor } from "@/lib/courseDetailContent";
-import {
-  metricsExample,
-  NOTIFICATION_EXAMPLE,
-  pendingTasksFor,
-  recentActivityFor,
-  teacherNotesFor,
-} from "@/lib/panelInicioContent";
+import { pendingTasksFor } from "@/lib/panelInicioContent";
 import type { PlataformaTab } from "./PlataformaLayout";
 import { categoryColor, categoryIcon, RoadmapCourseCard } from "./RoadmapCourseCard";
 import type { CourseStatus } from "@/lib/roadmapProgress";
@@ -52,10 +36,6 @@ const ESTADO_OPTIONS: { label: string; value: "Todos" | CourseStatus }[] = [
  *   elsewhere (Comprar, decorative), with a locked overlay when its
  *   branch-predecessor isn't completado yet — pure visual read of real
  *   state, not a second flag.
- * - "Otros cursos en progreso" / the rest of the old active-course panel
- *   (notificación, actividad reciente, notas del profe, "Unirme a la
- *   clase") — unchanged from before, still real-vs-decorative exactly as
- *   documented there.
  *
  * DECORATIVE, explicitly (same fabricated-and-documented pattern as
  * courseDetailContent.ts/panelInicioContent.ts everywhere else in this
@@ -69,6 +49,14 @@ const ESTADO_OPTIONS: { label: string; value: "Todos" | CourseStatus }[] = [
  *   active course's real categoria for at least topical plausibility),
  *   and "Go premium" is decorative, same as the header's own
  *   "Upgrade a Pro" (no real paid tier exists).
+ *
+ * Dropped per direct feedback right after this rebuild shipped: the old
+ * "Curso activo" panel (notificación/métricas de ejemplo/actividad
+ * reciente/notas del profe/"Unirme a la clase") and its "Otros cursos en
+ * progreso" list. Both were carried over unchanged from the previous
+ * layout, but the sketch never called for them and they read as
+ * redundant next to the new Plan de carrera cards + Tareas pendientes —
+ * removed rather than kept "just in case".
  */
 export function PanelInicioView({
   roadmap,
@@ -95,8 +83,10 @@ export function PanelInicioView({
     return selectedBranch.nodos.filter((n) => estadoFilter === "Todos" || getStatus(n.id) === estadoFilter);
   }, [selectedBranch, estadoFilter, getStatus]);
 
+  // The sidebar's agenda keys off whichever course is "en progreso" first —
+  // Plan de carrera / Tareas pendientes above already show every active
+  // course, so the sidebar doesn't need its own "other courses" list.
   const primaryActive = activeNodes[0] ?? null;
-  const otherActiveNodes = activeNodes.slice(1);
 
   return (
     <div className="flex-1 overflow-y-auto px-6 py-8 sm:px-8">
@@ -193,16 +183,6 @@ export function PanelInicioView({
 
               {/* Tareas pendientes — example content, see doc comment. */}
               {activeNodes.length > 0 && <TareasPendientes nodes={activeNodes} />}
-
-              {/* Curso activo: notificación/actividad/notas/unirme — unchanged from before. */}
-              {primaryActive && (
-                <div className="mt-6">
-                  <ActiveCoursePanel node={primaryActive} onTabChange={onTabChange} />
-                </div>
-              )}
-              {otherActiveNodes.length > 0 && (
-                <OtherActiveCourses nodes={otherActiveNodes} onTabChange={onTabChange} />
-              )}
             </div>
 
             {/* SIDEBAR */}
@@ -359,131 +339,6 @@ function TareasPendientes({ nodes }: { nodes: RoadmapNode[] }) {
             </div>
           );
         })}
-      </div>
-    </div>
-  );
-}
-
-// Real gap a previous round's reference screenshots pointed at: any
-// course besides the first "en progreso" one used to be silently
-// dropped. Compact real list — category/photo real, click-through to
-// Plan carrera.
-function OtherActiveCourses({ nodes, onTabChange }: { nodes: RoadmapNode[]; onTabChange: (tab: PlataformaTab) => void }) {
-  return (
-    <div className="mt-4 rounded-[20px] border border-border-soft bg-white p-5">
-      <p className="mb-3 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-sm text-ink">Otros cursos en progreso</p>
-      <div className="flex flex-col gap-2">
-        {nodes.map((n) => {
-          const catColor = categoryColor(n.curso.categoria);
-          const Icon = categoryIcon(n.curso.categoria);
-          return (
-            <button
-              key={n.id}
-              type="button"
-              onClick={() => onTabChange("plan-carrera")}
-              className="flex items-center gap-3 rounded-xl border border-border-soft px-3 py-2.5 text-left transition-colors hover:bg-cream-soft"
-            >
-              {n.curso.imagen ? (
-                <img src={n.curso.imagen} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
-              ) : (
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg" style={{ background: catColor.bg }}>
-                  <Icon className="h-4 w-4" style={{ color: catColor.text }} />
-                </span>
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-['Inter:Regular',sans-serif] text-sm text-ink">{n.curso.nombre}</p>
-                <p className="font-['Inter:Regular',sans-serif] text-[11px] text-ink-muted">{n.curso.categoria}</p>
-              </div>
-              <span className="shrink-0 rounded-pill bg-brand-hover/10 px-2 py-0.5 font-['Inter:SemiBold',sans-serif] text-[10px] font-semibold text-brand-hover">
-                En progreso
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// Unchanged from before: notificación/métricas/actividad/notas/"Unirme a
-// la clase" — see PanelInicioView's own doc comment for what's real
-// (proximaFecha/horario when present) vs decorative in here.
-function ActiveCoursePanel({ node, onTabChange }: { node: RoadmapNode; onTabChange: (tab: PlataformaTab) => void }) {
-  const curso = node.curso;
-  const activity = recentActivityFor(curso.nombre);
-  const notes = teacherNotesFor(curso.categoria);
-  const metrics = metricsExample();
-
-  return (
-    <div className="overflow-hidden rounded-[20px] border border-border-soft bg-white">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-soft bg-brand-hover/[0.04] px-6 py-5">
-        <div>
-          <p className="mb-0.5 font-['Inter:Regular',sans-serif] text-xs uppercase tracking-wide text-brand-hover">Curso activo</p>
-          <h2 className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-lg text-ink">{curso.nombre}</h2>
-        </div>
-        <button
-          type="button"
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-pill bg-brand-hover px-4 py-2.5 font-['Plus_Jakarta_Sans:Medium',sans-serif] text-sm text-white transition-transform hover:scale-105"
-        >
-          <Radio className="h-4 w-4" />
-          Unirme a la clase
-        </button>
-      </div>
-
-      <div className="flex items-center gap-2.5 border-b border-border-soft bg-amber-50 px-6 py-3">
-        <Bell className="h-4 w-4 shrink-0 text-amber-600" />
-        <p className="font-['Inter:Regular',sans-serif] text-xs text-amber-800">{NOTIFICATION_EXAMPLE}</p>
-      </div>
-
-      <div className="grid grid-cols-3 gap-3 border-b border-border-soft px-6 py-4">
-        {metrics.map((m) => (
-          <div key={m.label} className="text-center">
-            <p className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-lg text-ink">{m.valor}</p>
-            <p className="font-['Inter:Regular',sans-serif] text-[11px] text-ink-muted">{m.label}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 px-6 py-6 md:grid-cols-2">
-        <div>
-          <p className="mb-2.5 flex items-center gap-1.5 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-sm text-ink">
-            <LayoutDashboard className="h-3.5 w-3.5 text-ink-muted" />
-            Actividad reciente
-          </p>
-          <ul className="flex flex-col gap-2">
-            {activity.map((a, i) => (
-              <li key={i} className="font-['Inter:Regular',sans-serif] text-sm text-ink">
-                {a.texto}
-                <span className="ml-1.5 text-xs text-ink-muted">· {a.hace}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div>
-          <p className="mb-2.5 flex items-center gap-1.5 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-sm text-ink">
-            <MessageSquareQuote className="h-3.5 w-3.5 text-ink-muted" />
-            Notas del profe
-          </p>
-          <div className="flex flex-col gap-2">
-            {notes.map((n, i) => (
-              <div key={i} className="rounded-xl bg-ink/[0.03] p-3">
-                <p className="mb-0.5 font-['Inter:SemiBold',sans-serif] text-xs font-semibold text-ink">{n.autor}</p>
-                <p className="font-['Inter:Regular',sans-serif] text-xs leading-relaxed text-ink-muted">{n.mensaje}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="border-t border-border-soft px-6 py-3">
-        <button
-          type="button"
-          onClick={() => onTabChange("plan-carrera")}
-          className="font-['Inter:Regular',sans-serif] text-xs text-ink-muted underline-offset-2 hover:text-ink hover:underline"
-        >
-          Ver este curso en tu recorrido
-        </button>
       </div>
     </div>
   );
