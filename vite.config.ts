@@ -387,6 +387,7 @@ function vercelApiDevMiddleware(): Plugin {
   const ROUTES: Record<string, string> = {
     '/api/chat': 'api/chat.ts',
     '/api/roadmap': 'api/roadmap.ts',
+    '/api/cvExtract': 'api/cvExtract.ts',
   }
 
   return {

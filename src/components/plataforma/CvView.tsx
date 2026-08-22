@@ -1,12 +1,14 @@
-import { Camera, ExternalLink, Link2, Pencil, Plus, Sliders, UserRound, X } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { Camera, ExternalLink, Link2, Loader2, Pencil, Plus, Sliders, UserRound, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Roadmap } from "@/lib/ai/roadmapClient";
+import { extractCv, loadCachedCvExtract, saveCvExtractCache, type CvExtractResult } from "@/lib/ai/cvExtractClient";
 import { parseCv } from "@/lib/cvParser";
 import { DEFAULT_COVER_GRADIENT, loadProfilePhotos, resizeImageToDataUrl, saveProfilePhotos } from "@/lib/profilePhotoStore";
 import { loadProfileInput } from "@/lib/profileStore";
 import {
   loadProfileExtras,
   saveProfileExtras,
+  type ManualCertification,
   type ManualExperience,
   type ManualLink,
   type ProfileExtras,
@@ -17,51 +19,59 @@ import type { CourseStatus } from "@/lib/roadmapProgress";
  * PARTE A/B — the auto-built CV. Reads whatever /limbo handed off
  * (src/lib/profileStore.ts: the uploaded CV's raw text, or — if no CV —
  * the person's own chat answers plus the roadmap's AI-generated trigger
- * summary as a fallback "Resumen") and renders it into one standard
- * template via src/lib/cvParser.ts's plain heuristic extraction. No AI
- * rewrite happens here.
+ * summary as a fallback "Resumen").
  *
- * Real feedback: this should read like a LinkedIn profile — separate
- * cards, each independently editable/addable, not a static dump of
- * whatever the CV parser found. Two data sources feed each card, kept
- * deliberately apart rather than merged:
- * - What the CV parser found (cv.experiencia/educacion/links/...) — real,
- *   read-only here (editing raw CV text is out of scope), one source of
- *   truth per src/lib/cvParser.ts.
- * - What the person types in by hand here (src/lib/profileExtrasStore.ts:
- *   carta de presentación, and manual add-ons to Destacados/Experiencia/
- *   Educación) — the one place that writes that store, additive only, so
- *   a manual addition never overwrites or hides something the CV parser
- *   found.
+ * Real feedback, twice now:
+ * (1) this should read like a LinkedIn profile — separate cards, each
+ *     independently editable/addable.
+ * (2) the CV's real content was landing entirely in one undifferentiated
+ *     bucket instead of being split into Destacados/Experiencia laboral/
+ *     Educación — src/lib/cvParser.ts's plain regex heuristics only
+ *     matched CVs shaped exactly like its expected line format, and a
+ *     real CV pasted from a LinkedIn/PDF export never is. Fixed by having
+ *     an actual model read and classify the CV instead of another regex
+ *     (src/lib/ai/cvExtractClient.ts -> api/cvExtract.ts, one structured
+ *     Gemini call per uploaded CV, cached in sessionStorage so switching
+ *     tabs doesn't re-call it). "Otros datos de tu CV" — the catch-all
+ *     bucket that fix was needed to eliminate — is gone entirely per
+ *     direct feedback ("otros datos no va"): every real thing in a CV
+ *     now has a real section to land in, so a leftover bucket isn't
+ *     needed anymore.
  *
- * "Destacados" is real URLs scanned out of the CV text (personal site,
- * portfolio, GitHub...) — never the Portfolio tab's project cards
- * (src/components/plataforma/PortfolioView.tsx already owns that, with
- * real projects; duplicating it here would just be the same content
- * twice) — plus whatever links get added manually.
+ * Three data sources feed each card, kept deliberately apart:
+ * - The AI extraction (links/experiencia/educacion/herramientas) — real,
+ *   read-only here, one Gemini call per CV. While it's in flight (or if
+ *   there's no CV / the call fails), each section falls back to
+ *   src/lib/cvParser.ts's synchronous regex result instead of sitting
+ *   empty — nombre/email always come from cvParser specifically (fast,
+ *   synchronous, and shared with the header's account menu, which can't
+ *   wait on an async call).
+ * - What the person types in by hand (src/lib/profileExtrasStore.ts:
+ *   carta de presentación, manual add-ons to Destacados/Experiencia/
+ *   Educación/Certificaciones) — the one place that writes that store,
+ *   additive only, so a manual addition never overwrites or hides
+ *   something the CV extraction found.
+ * - "Certificaciones Coderhouse" — derived live from roadmap progress
+ *   state (src/lib/roadmapProgress.ts): any course at "completado"
+ *   becomes a line here automatically. Manual certificaciones (outside
+ *   Coderhouse) can be added alongside it — the only "Certificaciones"
+ *   card ever gets both a real derived source AND a manual one, since
+ *   unlike Experiencia/Educación there's a genuine real source (roadmap
+ *   progress) worth keeping separate from what's typed in.
+ *
+ * "Destacados" is real URLs the AI found literally present in the CV
+ * text (never the Portfolio tab's project cards — that's real projects,
+ * duplicating it here would be the same content twice) — plus whatever
+ * links get added manually.
  *
  * Avatar + cover photo (src/lib/profilePhotoStore.ts) are editable HERE —
  * this is the one place that writes them — and read read-only wherever
  * else the profile shows up (the Plan carrera map's trigger card, the
- * header's account menu). A CV's raw text has no photo to pull from
- * (extracting one reliably from an arbitrary PDF layout is its own hard
- * problem, out of scope), so this is a manual upload instead of anything
- * automatic; the default cover (DEFAULT_COVER_GRADIENT) is a plain
- * gradient, never a fabricated stock photo standing in for a real one.
- *
- * "Certificaciones Coderhouse" (PARTE B) isn't separately stored — it's
- * derived live from the same roadmap progress state the node map writes to
- * (src/lib/roadmapProgress.ts): any course at "completado" becomes a line
- * here, dated from when it was marked complete. Mark a course complete on
- * the map, switch to this tab, it's already there. Not manually addable —
- * unlike the other cards, this one is a real, derived fact, so inventing
- * an entry here would misrepresent what was actually completed.
+ * header's account menu).
  *
  * `roadmap` is null when /limbo's "Omitir test" shortcut skipped the
- * conversation entirely (src/pages/Plataforma.tsx's doc comment) — every
- * roadmap-derived field just falls back to nothing (no trigger summary, no
- * certifications) instead of crashing; parseCv(null, null) already returns
- * a fully empty-but-safe CV on its own.
+ * conversation entirely — every roadmap-derived field just falls back to
+ * nothing instead of crashing.
  */
 export function CvView({
   roadmap,
@@ -82,6 +92,7 @@ export function CvView({
   const [addingLink, setAddingLink] = useState(false);
   const [addingExp, setAddingExp] = useState(false);
   const [addingEdu, setAddingEdu] = useState(false);
+  const [addingCert, setAddingCert] = useState(false);
 
   const persistExtras = (next: ProfileExtras) => {
     setExtras(next);
@@ -109,8 +120,49 @@ export function CvView({
     () => (roadmap ? [roadmap.trigger.experiencia, roadmap.trigger.habilidades].filter(Boolean).join(" ") : null),
     [roadmap],
   );
-  const cv = useMemo(() => parseCv(loadProfileInput(), fallbackResumen), [fallbackResumen]);
-  const currentRole = cv.experiencia[0]?.puesto ?? extras.experienciaManual[0]?.puesto ?? null;
+  const profileInput = useMemo(() => loadProfileInput(), []);
+  const cvText = profileInput?.cvText ?? null;
+  // Synchronous fallback — nombre/email always come from here; other
+  // fields only while the AI extraction below hasn't landed yet.
+  const cv = useMemo(() => parseCv(profileInput, fallbackResumen), [profileInput, fallbackResumen]);
+
+  const [extraction, setExtraction] = useState<CvExtractResult | null>(() => (cvText ? loadCachedCvExtract(cvText) : null));
+  const [extracting, setExtracting] = useState(false);
+
+  useEffect(() => {
+    if (!cvText || extraction) return;
+    let cancelled = false;
+    setExtracting(true);
+    extractCv(cvText)
+      .then((result) => {
+        if (cancelled) return;
+        saveCvExtractCache(cvText, result);
+        setExtraction(result);
+      })
+      .catch(() => {
+        // Best-effort — sections just keep showing cvParser's regex
+        // fallback (already rendered below) instead of an error state.
+      })
+      .finally(() => {
+        if (!cancelled) setExtracting(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [cvText, extraction]);
+
+  // Sync regex fallback first-paint, upgraded to the AI's read once it
+  // lands — the regex's NAME_GUESS_RE only matches a name sitting alone on
+  // its own first line, which a real CV pasted as one run-on paragraph
+  // (see api/_lib/cvExtractPrompt.ts's doc comment) never has.
+  const nombre = extraction?.nombre ?? cv.nombre;
+  const links = extraction?.links ?? cv.links;
+  const experiencia = extraction?.experiencia ?? cv.experiencia.map((e) => ({ ...e, descripcion: "" }));
+  const educacion = extraction?.educacion ?? cv.educacion;
+  const herramientas = extraction?.herramientas ?? cv.herramientas;
+  const isLoadingSection = extracting && !extraction;
+
+  const currentRole = experiencia[0]?.puesto ?? extras.experienciaManual[0]?.puesto ?? null;
 
   const certifications = (roadmap?.nodos ?? [])
     .filter((n) => getStatus(n.id) === "completado")
@@ -157,7 +209,7 @@ export function CvView({
               </div>
             </button>
             <div className="min-w-0 flex-1 pt-2">
-              <p className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-lg text-ink">{cv.nombre ?? "Tu CV"}</p>
+              <p className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-lg text-ink">{nombre ?? "Tu CV"}</p>
               {currentRole && <p className="font-['Inter:Regular',sans-serif] text-sm text-ink-muted">{currentRole}</p>}
             </div>
           </div>
@@ -225,9 +277,14 @@ export function CvView({
           </Section>
         )}
 
-        {/* Destacados — real links found in the CV, plus manual add-ons. */}
+        {/* Destacados — real links the AI found in the CV, plus manual add-ons. */}
         <Section title="Destacados" onAdd={() => setAddingLink(true)}>
-          <LinkList links={cv.links} manual={extras.destacadosManual} onRemove={(i) => persistExtras({ ...extras, destacadosManual: extras.destacadosManual.filter((_, idx) => idx !== i) })} />
+          <LinkList
+            links={links}
+            manual={extras.destacadosManual}
+            loading={isLoadingSection}
+            onRemove={(i) => persistExtras({ ...extras, destacadosManual: extras.destacadosManual.filter((_, idx) => idx !== i) })}
+          />
           {addingLink && (
             <AddLinkForm
               onSave={(l) => {
@@ -239,11 +296,12 @@ export function CvView({
           )}
         </Section>
 
-        {/* Experiencia laboral — CV-parsed entries (read-only) plus manual add-ons (removable). */}
+        {/* Experiencia laboral — AI-classified entries (read-only) plus manual add-ons (removable). */}
         <Section title="Experiencia laboral" onAdd={() => setAddingExp(true)}>
           <ExperienceList
-            cvEntries={cv.experiencia}
+            cvEntries={experiencia}
             manual={extras.experienciaManual}
+            loading={isLoadingSection}
             onRemove={(i) => persistExtras({ ...extras, experienciaManual: extras.experienciaManual.filter((_, idx) => idx !== i) })}
           />
           {addingExp && (
@@ -260,8 +318,9 @@ export function CvView({
         {/* Educación — same real-plus-manual pattern as Experiencia laboral. */}
         <Section title="Educación" onAdd={() => setAddingEdu(true)}>
           <EducationList
-            cvEntries={cv.educacion}
+            cvEntries={educacion}
             manual={extras.educacionManual}
+            loading={isLoadingSection}
             onRemove={(i) => persistExtras({ ...extras, educacionManual: extras.educacionManual.filter((_, idx) => idx !== i) })}
           />
           {addingEdu && (
@@ -275,10 +334,10 @@ export function CvView({
           )}
         </Section>
 
-        {cv.herramientas.length > 0 && (
+        {herramientas.length > 0 && (
           <Section title="Herramientas">
             <div className="flex flex-wrap gap-2">
-              {cv.herramientas.map((h, i) => (
+              {herramientas.map((h, i) => (
                 <span
                   key={i}
                   className="rounded-pill bg-ink/5 px-3 py-1 font-['Inter:Regular',sans-serif] text-xs text-ink"
@@ -290,34 +349,52 @@ export function CvView({
           </Section>
         )}
 
-        {cv.extra.length > 0 && (
-          <Section title="Otros datos de tu CV">
-            <ul className="space-y-1.5">
-              {cv.extra.map((e, i) => (
-                <li key={i} className="font-['Inter:Regular',sans-serif] text-sm text-ink-muted">
-                  {e}
-                </li>
-              ))}
-            </ul>
-          </Section>
-        )}
-
-        {/* PARTE B — derived, not manually addable, see module doc comment. */}
-        <Section title="Certificaciones Coderhouse">
-          {certifications.length === 0 ? (
+        {/* PARTE B — Certificaciones Coderhouse is derived (never manually
+            addable, it's a real verifiable fact); manual certificaciones
+            (outside Coderhouse) can be added alongside it. */}
+        <Section title="Certificaciones" onAdd={() => setAddingCert(true)}>
+          {certifications.length === 0 && extras.certificacionesManual.length === 0 ? (
             <p className="font-['Inter:Regular',sans-serif] text-sm text-ink-muted">
-              Todavía no completaste ningún curso — marcalo como completado en el mapa de tu recorrido
-              para que aparezca acá.
+              Todavía no tenés certificaciones — completá un curso en tu recorrido, o agregá una que ya tengas.
             </p>
           ) : (
             <ul className="space-y-1.5">
               {certifications.map((c, i) => (
-                <li key={i} className="flex items-center justify-between gap-3 font-['Inter:Regular',sans-serif] text-[15px] text-ink">
-                  <span>{c.nombre}</span>
+                <li key={`cd-${i}`} className="flex items-center justify-between gap-3 font-['Inter:Regular',sans-serif] text-[15px] text-ink">
+                  <span>
+                    {c.nombre} <span className="text-xs text-ink-muted">· Coderhouse</span>
+                  </span>
                   <span className="shrink-0 text-xs text-ink-muted">{formatDate(c.fecha)}</span>
                 </li>
               ))}
+              {extras.certificacionesManual.map((c, i) => (
+                <li key={`manual-${i}`} className="flex items-center justify-between gap-3 font-['Inter:Regular',sans-serif] text-[15px] text-ink">
+                  <span>
+                    {c.titulo}
+                    {c.institucion && <span className="text-xs text-ink-muted"> · {c.institucion}</span>}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      persistExtras({ ...extras, certificacionesManual: extras.certificacionesManual.filter((_, idx) => idx !== i) })
+                    }
+                    aria-label="Quitar certificación"
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-ink-muted hover:bg-ink/5 hover:text-ink"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </li>
+              ))}
             </ul>
+          )}
+          {addingCert && (
+            <AddCertificationForm
+              onSave={(c) => {
+                persistExtras({ ...extras, certificacionesManual: [...extras.certificacionesManual, c] });
+                setAddingCert(false);
+              }}
+              onCancel={() => setAddingCert(false)}
+            />
           )}
         </Section>
       </div>
@@ -326,9 +403,8 @@ export function CvView({
 }
 
 // Section card + header. The Plus icon becomes a real "add" affordance
-// when `onAdd` is passed (Destacados/Experiencia/Educación); otherwise it
-// stays decorative, same as Sliders always is — no reorder logic exists
-// for any of this data.
+// when `onAdd` is passed; otherwise it stays decorative, same as Sliders
+// always is — no reorder logic exists for any of this data.
 function Section({ title, onAdd, children }: { title: string; onAdd?: () => void; children: React.ReactNode }) {
   return (
     <div className="mb-4 rounded-[20px] border border-border-soft bg-white p-6">
@@ -354,6 +430,15 @@ function Section({ title, onAdd, children }: { title: string; onAdd?: () => void
   );
 }
 
+function LoadingNotice() {
+  return (
+    <p className="flex items-center gap-1.5 font-['Inter:Regular',sans-serif] text-sm text-ink-muted">
+      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      Analizando tu CV…
+    </p>
+  );
+}
+
 function toHref(url: string): string {
   return /^https?:\/\//i.test(url) ? url : `https://${url}`;
 }
@@ -365,14 +450,16 @@ function displayLink(url: string): string {
 function LinkList({
   links,
   manual,
+  loading,
   onRemove,
 }: {
   links: string[];
   manual: ManualLink[];
+  loading: boolean;
   onRemove: (i: number) => void;
 }) {
   if (links.length === 0 && manual.length === 0) {
-    return <p className="font-['Inter:Regular',sans-serif] text-sm text-ink-muted">Todavía no tenés links agregados.</p>;
+    return loading ? <LoadingNotice /> : <p className="font-['Inter:Regular',sans-serif] text-sm text-ink-muted">Todavía no tenés links agregados.</p>;
   }
   return (
     <ul className="flex flex-col gap-2">
@@ -442,16 +529,22 @@ function AddLinkForm({ onSave, onCancel }: { onSave: (l: ManualLink) => void; on
 function ExperienceList({
   cvEntries,
   manual,
+  loading,
   onRemove,
 }: {
-  cvEntries: { puesto: string; empresa: string; fechas: string }[];
+  cvEntries: { puesto: string; empresa: string; fechas: string; descripcion?: string }[];
   manual: ManualExperience[];
+  loading: boolean;
   onRemove: (i: number) => void;
 }) {
   if (cvEntries.length === 0 && manual.length === 0) {
-    return <p className="font-['Inter:Regular',sans-serif] text-sm text-ink-muted">Todavía no agregaste experiencia laboral.</p>;
+    return loading ? (
+      <LoadingNotice />
+    ) : (
+      <p className="font-['Inter:Regular',sans-serif] text-sm text-ink-muted">Todavía no agregaste experiencia laboral.</p>
+    );
   }
-  const all = [...cvEntries.map((e) => ({ ...e, manual: false })), ...manual.map((e) => ({ ...e, manual: true }))];
+  const all = [...cvEntries.map((e) => ({ ...e, manual: false })), ...manual.map((e) => ({ ...e, descripcion: "", manual: true }))];
   return (
     <div className="flex flex-col gap-5">
       {all.map((e, i) => (
@@ -460,8 +553,11 @@ function ExperienceList({
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="font-['Inter:Regular',sans-serif] text-[15px] text-ink">{e.puesto}</p>
-              <p className="font-['Inter:Regular',sans-serif] text-[15px] text-ink">{e.empresa}</p>
-              <p className="font-['Inter:Regular',sans-serif] text-xs text-ink-muted">{e.fechas}</p>
+              {e.empresa && <p className="font-['Inter:Regular',sans-serif] text-[15px] text-ink">{e.empresa}</p>}
+              {e.fechas && <p className="font-['Inter:Regular',sans-serif] text-xs text-ink-muted">{e.fechas}</p>}
+              {e.descripcion && (
+                <p className="mt-1.5 font-['Inter:Regular',sans-serif] text-sm leading-relaxed text-ink-muted">{e.descripcion}</p>
+              )}
             </div>
             {e.manual && (
               <button
@@ -517,14 +613,20 @@ function AddExperienceForm({ onSave, onCancel }: { onSave: (e: ManualExperience)
 function EducationList({
   cvEntries,
   manual,
+  loading,
   onRemove,
 }: {
   cvEntries: string[];
   manual: string[];
+  loading: boolean;
   onRemove: (i: number) => void;
 }) {
   if (cvEntries.length === 0 && manual.length === 0) {
-    return <p className="font-['Inter:Regular',sans-serif] text-sm text-ink-muted">Todavía no agregaste educación.</p>;
+    return loading ? (
+      <LoadingNotice />
+    ) : (
+      <p className="font-['Inter:Regular',sans-serif] text-sm text-ink-muted">Todavía no agregaste educación.</p>
+    );
   }
   return (
     <ul className="space-y-1.5">
@@ -562,6 +664,29 @@ function AddEducationForm({ onSave, onCancel }: { onSave: (e: string) => void; o
         className="mb-3 w-full rounded-lg border border-border-soft bg-white px-3 py-2 font-['Inter:Regular',sans-serif] text-sm text-ink outline-none placeholder:text-ink-muted"
       />
       <FormActions canSave={canSave} onSave={() => onSave(value.trim())} onCancel={onCancel} />
+    </div>
+  );
+}
+
+function AddCertificationForm({ onSave, onCancel }: { onSave: (c: ManualCertification) => void; onCancel: () => void }) {
+  const [titulo, setTitulo] = useState("");
+  const [institucion, setInstitucion] = useState("");
+  const canSave = titulo.trim().length > 0;
+  return (
+    <div className="mt-3 rounded-xl border border-border-soft bg-cream-soft p-3">
+      <input
+        value={titulo}
+        onChange={(e) => setTitulo(e.target.value)}
+        placeholder="Título de la certificación"
+        className="mb-2 w-full rounded-lg border border-border-soft bg-white px-3 py-2 font-['Inter:Regular',sans-serif] text-sm text-ink outline-none placeholder:text-ink-muted"
+      />
+      <input
+        value={institucion}
+        onChange={(e) => setInstitucion(e.target.value)}
+        placeholder="Institución (opcional)"
+        className="mb-3 w-full rounded-lg border border-border-soft bg-white px-3 py-2 font-['Inter:Regular',sans-serif] text-sm text-ink outline-none placeholder:text-ink-muted"
+      />
+      <FormActions canSave={canSave} onSave={() => onSave({ titulo: titulo.trim(), institucion: institucion.trim() })} onCancel={onCancel} />
     </div>
   );
 }
