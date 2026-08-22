@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronLeft, ChevronRight, LayoutDashboard, Sparkles } from "lucide-react";
+import { Award, BookOpen, ChevronDown, ChevronLeft, ChevronRight, LayoutDashboard, Sparkles, Star, TrendingUp } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { Roadmap, RoadmapNode, RoadmapNodeTipo } from "@/lib/ai/roadmapClient";
 import { pendingTasksFor } from "@/lib/panelInicioContent";
@@ -134,14 +134,16 @@ export function PanelInicioView({
             <div className="min-w-0 flex-1">
               {/* Overview — real counts, see module doc comment for the one exception. */}
               <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <StatTile label="Progreso plan de carrera" value={`${progresoPct}%`} pct={progresoPct} />
+                <StatTile icon={TrendingUp} label="Progreso plan de carrera" value={`${progresoPct}%`} pct={progresoPct} />
                 <StatTile
+                  icon={BookOpen}
                   label="Cursos activos"
                   value={`${activeNodes.length}/${totalCount}`}
                   pct={totalCount > 0 ? (activeNodes.length / totalCount) * 100 : 0}
                 />
-                <StatTile label="Promedio calificación" value="89 ptos" pct={89} decorative />
+                <StatTile icon={Star} label="Promedio calificación" value="89 ptos" pct={89} decorative />
                 <StatTile
+                  icon={Award}
                   label="Certificados"
                   value={`${completadoCount}`}
                   pct={totalCount > 0 ? (completadoCount / totalCount) * 100 : 0}
@@ -203,10 +205,23 @@ export function PanelInicioView({
 // tile has no real grading system behind it) — no visual difference is
 // shown to the person, same as every other decorative/real split in this
 // app not being called out in the UI itself.
-function StatTile({ label, value, pct }: { label: string; value: string; pct: number; decorative?: boolean }) {
+function StatTile({
+  icon: Icon,
+  label,
+  value,
+  pct,
+}: {
+  icon: typeof TrendingUp;
+  label: string;
+  value: string;
+  pct: number;
+  decorative?: boolean;
+}) {
   return (
     <div className="rounded-2xl border border-border-soft bg-cream-soft/60 p-4">
-      <span className="mb-3 flex h-6 w-6 items-center justify-center rounded-full bg-ink/10" />
+      <span className="mb-3 flex h-6 w-6 items-center justify-center rounded-full bg-brand-hover/15 text-brand-hover">
+        <Icon className="h-3.5 w-3.5" />
+      </span>
       <p className="mb-0.5 font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-xl text-ink">{value}</p>
       <div className="mb-1.5 h-1.5 w-full overflow-hidden rounded-pill bg-ink/10">
         <div className="h-full rounded-pill bg-brand-hover" style={{ width: `${Math.min(100, Math.max(0, pct))}%` }} />
@@ -401,7 +416,7 @@ function ScheduleSidebar({ activeNode }: { activeNode: RoadmapNode | null }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <h2 className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-xl text-ink">Schedule</h2>
+      <h2 className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-xl text-ink">Clases</h2>
 
       <MiniCalendar classWeekdays={parsed?.days ?? []} />
 
