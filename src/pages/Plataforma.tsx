@@ -248,7 +248,7 @@ export default function Plataforma() {
 
   return (
     <PlataformaLayout activeTab={tab} onTabChange={setTab}>
-      {tab === "panel" && <PanelInicioView />}
+      {tab === "panel" && <PanelInicioView roadmap={roadmap} getStatus={getStatus} onTabChange={setTab} />}
       {tab === "plan-carrera" && (
         <MapaBody
           roadmap={roadmap}
