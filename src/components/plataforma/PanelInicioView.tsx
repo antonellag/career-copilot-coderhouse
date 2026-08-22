@@ -1,17 +1,28 @@
 import { ChevronDown, ChevronLeft, ChevronRight, LayoutDashboard, Lock, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
-import type { Roadmap, RoadmapBranch, RoadmapNode } from "@/lib/ai/roadmapClient";
+import type { Roadmap, RoadmapNode, RoadmapNodeTipo } from "@/lib/ai/roadmapClient";
 import { pendingTasksFor } from "@/lib/panelInicioContent";
 import { DEFAULT_COVER_GRADIENT } from "@/lib/profilePhotoStore";
 import type { PlataformaTab } from "./PlataformaLayout";
 import { categoryColor, categoryIcon, RoadmapCourseCard } from "./RoadmapCourseCard";
 import type { CourseStatus } from "@/lib/roadmapProgress";
 
+// "Aprobados" is the closest real label to "completado" — this app has no
+// pass/fail grading system anywhere, so there's no real "Desaprobados"
+// state to offer; only the 3 real states this.CourseStatus tracks.
 const ESTADO_OPTIONS: { label: string; value: "Todos" | CourseStatus }[] = [
-  { label: "Estado", value: "Todos" },
-  { label: "No iniciado", value: "no-iniciado" },
-  { label: "En progreso", value: "en-progreso" },
-  { label: "Completado", value: "completado" },
+  { label: "Todos", value: "Todos" },
+  { label: "Pendientes", value: "no-iniciado" },
+  { label: "En curso", value: "en-progreso" },
+  { label: "Aprobados", value: "completado" },
+];
+
+type RamaFilterValue = "Todos" | RoadmapNodeTipo;
+const RAMA_OPTIONS: { label: string; value: RamaFilterValue }[] = [
+  { label: "Todos", value: "Todos" },
+  { label: "Camino principal", value: "principal" },
+  { label: "Repaso", value: "repaso" },
+  { label: "Complementos", value: "complementaria" },
 ];
 
 /**
@@ -27,15 +38,21 @@ const ESTADO_OPTIONS: { label: string; value: "Todos" | CourseStatus }[] = [
  *   decorative (no grading system exists anywhere in this app) — kept
  *   only because the sketch called for a 4th tile and marked clearly in
  *   code, same "not real data" rule as everywhere else.
- * - "Plan de carrera": a Rama/Estado filter pair picks ONE branch at a
- *   time (not every branch shown at once like the previous version) —
- *   its real nodes render as cards. A node's real status decides which
- *   CARD TYPE it gets: "en progreso" gets ActiveCourseCard (real
- *   horario when the catalog has one, "Ingresar al curso" jumps to Plan
- *   carrera); anything else gets the same RoadmapCourseCard used
+ * - "Plan de carrera": a Rama filter (Todos / Camino principal / Repaso /
+ *   Complementos — by branch TYPE, node.tipo) crossed with an Estado
+ *   filter (Todos / Pendientes / En curso / Aprobados — real
+ *   CourseStatus values, relabeled; there's no "Desaprobados" option
+ *   since this app tracks no pass/fail grading anywhere). Both default to
+ *   "Todos" so every course shows by default. A node's real status
+ *   decides which CARD TYPE it gets: "en progreso" gets ActiveCourseCard
+ *   (real horario when the catalog has one, "Ingresar al curso" jumps to
+ *   Plan carrera); anything else gets the same RoadmapCourseCard used
  *   elsewhere (Comprar, decorative), with a locked overlay when its
- *   branch-predecessor isn't completado yet — pure visual read of real
- *   state, not a second flag.
+ *   REAL branch-predecessor isn't completado yet (ownerBranchNodes looks
+ *   up each node's actual owning branch — ramaPrincipal / ramaRepaso /
+ *   the specific ramasComplementarias entry — regardless of which filter
+ *   is currently narrowing the view) — pure visual read of real state,
+ *   not a second flag.
  *
  * DECORATIVE, explicitly (same fabricated-and-documented pattern as
  * courseDetailContent.ts/panelInicioContent.ts everywhere else in this
@@ -78,15 +95,27 @@ export function PanelInicioView({
   const totalCount = allNodes.length;
   const progresoPct = totalCount > 0 ? Math.round((completadoCount / totalCount) * 100) : 0;
 
-  const branches: RoadmapBranch[] = roadmap ? [roadmap.ramaPrincipal, ...roadmap.ramasComplementarias] : [];
-  const [ramaFilter, setRamaFilter] = useState<string | null>(null);
+  const [ramaFilter, setRamaFilter] = useState<RamaFilterValue>("Todos");
   const [estadoFilter, setEstadoFilter] = useState<"Todos" | CourseStatus>("Todos");
-  const selectedBranch = branches.find((b) => b.nombre === ramaFilter) ?? branches[0] ?? null;
 
-  const visibleNodes = useMemo(() => {
-    if (!selectedBranch) return [];
-    return selectedBranch.nodos.filter((n) => estadoFilter === "Todos" || getStatus(n.id) === estadoFilter);
-  }, [selectedBranch, estadoFilter, getStatus]);
+  const visibleNodes = useMemo(
+    () =>
+      allNodes.filter(
+        (n) => (ramaFilter === "Todos" || n.tipo === ramaFilter) && (estadoFilter === "Todos" || getStatus(n.id) === estadoFilter),
+      ),
+    [allNodes, ramaFilter, estadoFilter, getStatus],
+  );
+
+  // A node's real predecessor for locking has to come from its OWN real
+  // branch's order (ramaPrincipal / ramaRepaso / the specific
+  // complementaria it belongs to) — never from the currently filtered
+  // view, which can mix nodes from different branches together.
+  const ownerBranchNodes = (node: RoadmapNode): RoadmapNode[] => {
+    if (!roadmap) return [node];
+    if (node.tipo === "principal") return roadmap.ramaPrincipal.nodos;
+    if (node.tipo === "repaso") return roadmap.ramaRepaso?.nodos ?? [node];
+    return roadmap.ramasComplementarias.find((b) => b.nombre === node.rama)?.nodos ?? [node];
+  };
 
   // The sidebar's agenda keys off whichever course is "en progreso" first —
   // Plan de carrera / Tareas pendientes above already show every active
@@ -139,15 +168,11 @@ export function PanelInicioView({
                   <div>
                     <h2 className="font-['Plus_Jakarta_Sans:SemiBold',sans-serif] text-base text-ink">Plan de carrera</h2>
                     <p className="font-['Inter:Regular',sans-serif] text-xs text-ink-muted">
-                      Seleccioná la rama para ver tu plan de carrera y comenzar los cursos.
+                      Filtrá por camino y estado para ver tus cursos.
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2.5">
-                    <FilterSelect
-                      value={selectedBranch?.nombre ?? ""}
-                      onChange={setRamaFilter}
-                      options={branches.map((b) => ({ label: b.nombre, value: b.nombre }))}
-                    />
+                    <FilterSelect value={ramaFilter} onChange={(v) => setRamaFilter(v as RamaFilterValue)} options={RAMA_OPTIONS} />
                     <FilterSelect
                       value={estadoFilter}
                       onChange={(v) => setEstadoFilter(v as "Todos" | CourseStatus)}
@@ -158,17 +183,16 @@ export function PanelInicioView({
 
                 <div className="flex items-stretch gap-3 overflow-x-auto pb-2">
                   {visibleNodes.length === 0 ? (
-                    <p className="font-['Inter:Regular',sans-serif] text-sm text-ink-muted">
-                      No hay cursos con ese filtro en esta rama.
-                    </p>
+                    <p className="font-['Inter:Regular',sans-serif] text-sm text-ink-muted">No hay cursos con ese filtro.</p>
                   ) : (
                     visibleNodes.map((node) => {
                       const status = getStatus(node.id);
                       if (status === "en-progreso") {
                         return <ActiveCourseCard key={node.id} node={node} onTabChange={onTabChange} />;
                       }
-                      const index = selectedBranch!.nodos.findIndex((n) => n.id === node.id);
-                      const locked = isLocked(selectedBranch!.nodos, index, getStatus);
+                      const branchNodes = ownerBranchNodes(node);
+                      const index = branchNodes.findIndex((n) => n.id === node.id);
+                      const locked = isLocked(branchNodes, index, getStatus);
                       return (
                         <div key={node.id} className="relative shrink-0">
                           <RoadmapCourseCard node={node} status={status} />
