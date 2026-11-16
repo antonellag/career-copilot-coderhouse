@@ -357,7 +357,7 @@ function Frame104() {
 function PFramerText5() {
   return (
     <div className="content-stretch flex flex-col items-center relative shrink-0 w-full" data-name="p.framer-text">
-      <div className="[word-break:break-word] cursor-pointer flex flex-col font-['Plus_Jakarta_Sans:Medium',sans-serif] font-medium justify-center leading-[0] relative shrink-0 text-[14px] text-center text-white tracking-[-0.14px] whitespace-nowrap" role="button" tabIndex="0">
+      <div className="[word-break:break-word] cursor-pointer flex flex-col font-['Plus_Jakarta_Sans:Medium',sans-serif] font-medium justify-center leading-[0] relative shrink-0 text-[14px] text-center text-white tracking-[-0.14px] whitespace-nowrap" role="button" tabIndex={0}>
         <p className="leading-[14px]">Inscribirme ahora</p>
       </div>
     </div>
@@ -14603,7 +14603,7 @@ function Links() {
 function PFramerText107() {
   return (
     <div className="content-stretch flex flex-col items-center relative shrink-0 w-full" data-name="p.framer-text">
-      <div className="[word-break:break-word] cursor-pointer flex flex-col font-['Plus_Jakarta_Sans:Medium',sans-serif] font-medium justify-center leading-[0] relative shrink-0 text-[14px] text-center text-white tracking-[-0.14px] whitespace-nowrap" role="button" tabIndex="0">
+      <div className="[word-break:break-word] cursor-pointer flex flex-col font-['Plus_Jakarta_Sans:Medium',sans-serif] font-medium justify-center leading-[0] relative shrink-0 text-[14px] text-center text-white tracking-[-0.14px] whitespace-nowrap" role="button" tabIndex={0}>
         <p className="leading-[14px]">Inscribirme ahora</p>
       </div>
     </div>
