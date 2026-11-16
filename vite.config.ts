@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'node:path'
 
-import siteConfiguration from './.figma/make/site.json'
+import siteConfiguration from './.figma/make/site.json' with { type: 'json' }
 
 // Vite config — https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -36,7 +36,7 @@ export default defineConfig(({ mode }) => {
     ],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, './src'),
+        '@': path.resolve(import.meta.dirname, './src'),
       },
     },
     server: {
@@ -242,8 +242,8 @@ function figmaErrorOverlayReplay(): Plugin {
     configureServer(server) {
       let lastError: object | null = null
 
-      const origSend = server.ws.send.bind(server.ws) as (...args: any[]) => void
-      server.ws.send = ((...args: any[]) => {
+      const origSend = server.ws.send.bind(server.ws)
+      server.ws.send = ((...args: Parameters<typeof server.ws.send>) => {
         const payload = args[0]
         if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
           const type = (payload as { type?: string }).type
@@ -432,7 +432,7 @@ function vercelApiDevMiddleware(): Plugin {
         }
 
         try {
-          const mod = await server.ssrLoadModule(path.resolve(__dirname, modulePath))
+          const mod = await server.ssrLoadModule(path.resolve(import.meta.dirname, modulePath))
           await (mod.default as (req: unknown, res: unknown) => Promise<void>)(req, vercelRes)
         } catch (err) {
           next(err as Error)

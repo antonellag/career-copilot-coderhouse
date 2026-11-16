@@ -1,6 +1,7 @@
-import { Book, Briefcase, Check, Circle, CheckCircle2, Code2, Database, Megaphone, Package, Palette, Sparkles, Users } from "lucide-react";
+import { Check, Circle, CheckCircle2 } from "lucide-react";
 import type { RoadmapNode, RoadmapNodeTipo } from "@/lib/ai/roadmapClient";
 import type { CourseStatus } from "@/lib/roadmapProgress";
+import { categoryColor, categoryIcon, formatMapPrice, statusLabel, tipoLabel } from "@/lib/roadmapCardHelpers";
 
 /**
  * A self-contained, real course card — same visual content as the Plan
@@ -34,36 +35,6 @@ function branchBadgeStyle(tipo: RoadmapNodeTipo): React.CSSProperties {
   return { background: "#ede9fe", color: "#7c3aed" };
 }
 
-const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
-  "Inteligencia Artificial": { bg: "#ffedd5", text: "#ff7d2a" },
-  "Programación": { bg: "#dcfce7", text: "#16a34a" },
-  "Diseño": { bg: "#fce7f3", text: "#be185d" },
-  Data: { bg: "#dbeafe", text: "#2563eb" },
-  "Marketing Digital": { bg: "#fef3c7", text: "#b45309" },
-  Negocios: { bg: "#e0e7ff", text: "#4338ca" },
-  Producto: { bg: "#ffe4e6", text: "#be123c" },
-  "Softs Skills": { bg: "#f3f4f6", text: "#374151" },
-};
-
-export function categoryColor(categoria: string): { bg: string; text: string } {
-  return CATEGORY_COLORS[categoria] ?? { bg: "#f3f4f6", text: "#374151" };
-}
-
-const CATEGORY_ICONS: Record<string, typeof Book> = {
-  "Inteligencia Artificial": Sparkles,
-  "Programación": Code2,
-  "Diseño": Palette,
-  Data: Database,
-  "Marketing Digital": Megaphone,
-  Negocios: Briefcase,
-  Producto: Package,
-  "Softs Skills": Users,
-};
-
-export function categoryIcon(categoria: string): typeof Book {
-  return CATEGORY_ICONS[categoria] ?? Book;
-}
-
 function PlaceholderHeader({ categoria }: { categoria: string }) {
   const catColor = categoryColor(categoria);
   const Icon = categoryIcon(categoria);
@@ -82,27 +53,10 @@ function PlaceholderHeader({ categoria }: { categoria: string }) {
   );
 }
 
-export function tipoLabel(tipo: string): string {
-  if (tipo === "carrera") return "Carrera";
-  if (tipo === "diplomatura") return "Diplomatura";
-  if (tipo === "on-demand") return "On-demand";
-  return "Curso";
-}
-
-export function formatMapPrice(n: number): string {
-  return `$${n.toLocaleString("es-AR", { maximumFractionDigits: 0 })}`;
-}
-
 function StatusIcon({ status }: { status: CourseStatus }) {
   if (status === "completado") return <CheckCircle2 className="h-4 w-4 text-green-600" />;
   if (status === "en-progreso") return <Circle className="h-4 w-4 fill-brand-hover text-brand-hover" />;
   return <Circle className="h-4 w-4 text-ink-muted" />;
-}
-
-export function statusLabel(status: CourseStatus): string {
-  if (status === "completado") return "Completado";
-  if (status === "en-progreso") return "En progreso";
-  return "No iniciado";
 }
 
 export function RoadmapCourseCard({ node, status }: { node: RoadmapNode; status: CourseStatus }) {

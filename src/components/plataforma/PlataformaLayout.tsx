@@ -1,5 +1,5 @@
 import { Bell, CreditCard, Gift, LogOut, MessageSquareText, Rocket, Sparkles, UserRound } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { CoderhouseLogo } from "@/components/CoderhouseLogo";
 import { parseCv } from "@/lib/cvParser";
@@ -146,8 +146,16 @@ export function PlataformaLayout({
 function ProfileMenu({ onTabChange }: { onTabChange: (tab: PlataformaTab) => void }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const photos = useMemo(() => loadProfilePhotos(), [open]);
-  const cv = useMemo(() => parseCv(loadProfileInput(), null), [open]);
+  const [photos, setPhotos] = useState(() => loadProfilePhotos());
+  const [cv, setCv] = useState(() => parseCv(loadProfileInput(), null));
+
+  // Re-read storage every time the menu opens, in case the photo or CV
+  // changed elsewhere in the app since the last time it was open.
+  useEffect(() => {
+    if (!open) return;
+    setPhotos(loadProfilePhotos());
+    setCv(parseCv(loadProfileInput(), null));
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;

@@ -4,7 +4,8 @@ import type { Roadmap, RoadmapNode, RoadmapNodeTipo } from "@/lib/ai/roadmapClie
 import { pendingTasksFor } from "@/lib/panelInicioContent";
 import { DEFAULT_COVER_GRADIENT } from "@/lib/profilePhotoStore";
 import type { PlataformaTab } from "./PlataformaLayout";
-import { categoryColor, categoryIcon, RoadmapCourseCard } from "./RoadmapCourseCard";
+import { RoadmapCourseCard } from "./RoadmapCourseCard";
+import { categoryColor, categoryIcon } from "@/lib/roadmapCardHelpers";
 import type { CourseStatus } from "@/lib/roadmapProgress";
 
 // "Aprobados" is the closest real label to "completado" — this app has no
@@ -86,7 +87,7 @@ export function PanelInicioView({
   getStatus: (id: string) => CourseStatus;
   onTabChange: (tab: PlataformaTab) => void;
 }) {
-  const allNodes = roadmap?.nodos ?? [];
+  const allNodes = useMemo(() => roadmap?.nodos ?? [], [roadmap]);
   const activeNodes = allNodes.filter((n) => getStatus(n.id) === "en-progreso");
   const completadoCount = allNodes.filter((n) => getStatus(n.id) === "completado").length;
   const totalCount = allNodes.length;
